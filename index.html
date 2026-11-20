@@ -1,0 +1,554 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#080a10">
+  <meta name="description" content="Uno strumento luminoso e musicale controllato dai movimenti delle dita.">
+  <title>Air Harp — Fili di luce</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="preconnect" href="https://storage.googleapis.com" crossorigin>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #080a10;
+      --panel: rgba(13, 17, 27, .74);
+      --line: rgba(211, 231, 255, .13);
+      --muted: #9aa7bd;
+      --white: #f5f8ff;
+      --cyan: #78f5ff;
+      --violet: #b99bff;
+      --pink: #ff88dc;
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: var(--bg); }
+    body { color: var(--white); }
+    button { color: inherit; font: inherit; }
+    .stage { position: fixed; inset: 0; overflow: hidden; background: radial-gradient(ellipse at 50% 42%, #172333 0%, #0b1019 48%, #07090e 100%); }
+    #camera, #fx { position: absolute; inset: 0; width: 100%; height: 100%; }
+    #camera { object-fit: cover; transform: scaleX(-1); opacity: 0; transition: opacity .7s ease; }
+    .stage.live #camera { opacity: .65; }
+    #fx { pointer-events: none; }
+    .shade { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, rgba(3,5,10,.72) 0%, transparent 24%, transparent 65%, rgba(3,5,10,.76) 100%); }
+    .grain { position:absolute; inset:0; opacity:.11; pointer-events:none; background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.25'/%3E%3C/svg%3E"); mix-blend-mode:screen; }
+    .topbar { position:absolute; z-index:4; top:calc(14px + env(safe-area-inset-top,0px)); left:16px; right:16px; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    .brand { display:flex; align-items:center; gap:11px; }
+    .mark { width:38px; height:38px; display:grid; place-items:center; border:1px solid rgba(120,245,255,.32); border-radius:13px; background:rgba(120,245,255,.08); box-shadow:0 0 24px rgba(120,245,255,.12); }
+    .mark svg { width:23px; height:23px; }
+    .brand-title { font-size:12px; line-height:1.15; font-weight:750; letter-spacing:.17em; text-transform:uppercase; }
+    .brand-sub { margin-top:4px; font-size:10px; color:#9ba9bf; letter-spacing:.12em; text-transform:uppercase; }
+    .status { display:flex; align-items:center; gap:8px; min-height:32px; padding:0 11px; border:1px solid var(--line); border-radius:99px; background:rgba(8,10,16,.48); backdrop-filter:blur(16px); color:#bac5d6; font-size:11px; white-space:nowrap; }
+    .status-dot { width:7px; height:7px; border-radius:50%; background:#6f7b8f; box-shadow:0 0 9px currentColor; }
+    .status.live .status-dot { background:#83f4c2; color:#83f4c2; }
+    .status.loading .status-dot { background:#ffd875; color:#ffd875; animation:pulse 1s infinite; }
+    .status.error .status-dot { background:#ff7893; color:#ff7893; }
+    @keyframes pulse { 50% { opacity:.35; } }
+    .intro { position:absolute; z-index:3; top:50%; left:50%; width:min(88vw,470px); transform:translate(-50%,-56%); text-align:center; transition:opacity .5s ease, transform .5s ease; }
+    .stage.live .intro { opacity:0; transform:translate(-50%,-62%); pointer-events:none; }
+    .eyebrow { color:var(--cyan); font-size:10px; font-weight:700; letter-spacing:.25em; text-transform:uppercase; }
+    h1 { margin:14px 0 10px; font-size:clamp(39px,10vw,66px); line-height:.94; letter-spacing:-.065em; font-weight:650; }
+    h1 span { color:var(--cyan); text-shadow:0 0 32px rgba(120,245,255,.38); }
+    .intro p { margin:0 auto; max-width:340px; color:#b2bed0; font-size:14px; line-height:1.6; }
+    .primary { margin-top:25px; min-height:52px; padding:0 22px; border:0; border-radius:16px; background:linear-gradient(105deg,#a4fbff,#c3aaff 62%,#ffd1ef); color:#11131a; font-weight:750; font-size:14px; box-shadow:0 8px 34px rgba(120,245,255,.2); cursor:pointer; transition:transform .15s ease, filter .15s ease; }
+    .primary:active { transform:scale(.97); filter:brightness(.92); }
+    .privacy { margin-top:13px; color:#8190a7; font-size:11px; }
+    .aim { position:absolute; z-index:2; width:40px; height:40px; top:50%; left:50%; transform:translate(-50%,-50%); border:1px solid rgba(120,245,255,.22); border-radius:50%; opacity:.7; pointer-events:none; transition:opacity .3s; }
+    .aim:before,.aim:after { content:""; position:absolute; background:rgba(120,245,255,.26); }
+    .aim:before { width:1px;height:64px;left:50%;top:-13px; }
+    .aim:after { height:1px;width:64px;top:50%;left:-13px; }
+    .stage.live .aim { opacity:.12; }
+    .hint { position:absolute; z-index:3; left:50%; top:calc(50% + 65px); width:min(85vw,360px); transform:translateX(-50%); text-align:center; color:#d5e5f4; font-size:13px; text-shadow:0 2px 16px #000; opacity:0; transition:opacity .3s; pointer-events:none; }
+    .stage.live .hint { opacity:1; }
+    .stage.live.has-hand .hint { opacity:0; }
+    .dock { position:absolute; z-index:4; left:14px; right:14px; bottom:calc(13px + var(--safe-bottom)); display:flex; justify-content:center; pointer-events:none; }
+    .dock-card { pointer-events:auto; width:min(100%,520px); padding:13px 14px 12px; border:1px solid rgba(219,235,255,.15); border-radius:21px; background:var(--panel); box-shadow:0 12px 50px rgba(0,0,0,.38); backdrop-filter:blur(22px); opacity:0; transform:translateY(18px); transition:opacity .4s ease,transform .4s ease; }
+    .stage:not(.live) .dock-card { visibility:hidden; }
+    .stage.live .dock-card { opacity:1; transform:translateY(0); }
+    .dock-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    .meter-label { display:flex; align-items:center; gap:7px; color:#aebbd0; font-size:10px; text-transform:uppercase; letter-spacing:.14em; }
+    .meter-label b { color:#eef8ff; font-weight:650; letter-spacing:.04em; text-transform:none; }
+    .note { color:var(--cyan); font-variant-numeric:tabular-nums; font-size:11px; }
+    .meter { height:3px; margin:11px 0 12px; overflow:hidden; border-radius:99px; background:rgba(255,255,255,.09); }
+    .meter-fill { width:4%; height:100%; border-radius:inherit; background:linear-gradient(90deg,var(--cyan),var(--violet),var(--pink)); box-shadow:0 0 12px rgba(120,245,255,.8); transition:width .1s linear; }
+    .controls { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+    .control { min-height:42px; padding:0 13px; border:1px solid rgba(215,231,250,.13); border-radius:13px; background:rgba(255,255,255,.055); color:#e3ecf7; font-size:12px; cursor:pointer; }
+    .control:active { transform:scale(.97); }
+    .control.sound { grid-column:1 / -1; text-align:left; }
+    .control.lock.active { border-color:rgba(120,245,255,.42); background:rgba(120,245,255,.1); color:#bafaff; }
+    .control.sound.on { border-color:rgba(120,245,255,.36); background:rgba(120,245,255,.09); color:#bafaff; }
+    .control.reset { color:#aab5c6; }
+    .sound-icon { display:inline-block; width:16px; margin-right:7px; color:var(--cyan); }
+    .footnote { margin-top:9px; color:#8290a4; font-size:10px; text-align:center; }
+    .corner { position:absolute; z-index:2; bottom:calc(124px + var(--safe-bottom)); left:50%; transform:translateX(-50%); color:rgba(210,225,245,.55); font-size:9px; letter-spacing:.2em; text-transform:uppercase; white-space:nowrap; }
+    .toast { position:absolute; z-index:8; left:50%; top:calc(62px + env(safe-area-inset-top,0px)); transform:translate(-50%,-8px); max-width:calc(100% - 32px); padding:10px 14px; border:1px solid rgba(220,235,255,.16); border-radius:13px; background:rgba(12,17,27,.9); color:#e8eff9; font-size:12px; line-height:1.4; text-align:center; opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; }
+    .toast.show { opacity:1; transform:translate(-50%,0); }
+    .loader { display:none; position:absolute; inset:0; z-index:5; place-items:center; background:rgba(4,7,12,.52); backdrop-filter:blur(5px); }
+    .loader.show { display:grid; }
+    .loader-box { display:flex; align-items:center; gap:12px; padding:14px 17px; border:1px solid var(--line); border-radius:16px; background:rgba(15,20,30,.88); color:#d9e6f6; font-size:12px; }
+    .spinner { width:17px;height:17px;border:2px solid rgba(255,255,255,.2);border-top-color:var(--cyan);border-radius:50%;animation:spin .8s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    @media (min-width:760px) { .topbar { left:26px;right:26px;top:22px; } .dock { bottom:22px; } .stage.live .camera { opacity:.75; } .controls { display:flex; } .control.sound { grid-column:auto; flex:1; } }
+    @media (max-height:650px) { .intro { top:48%; } .intro h1 { font-size:42px; margin:9px 0 7px; } .intro p { font-size:12px; } .primary { min-height:44px; margin-top:15px; } .privacy { margin-top:8px; } .dock-card { padding:10px 12px 9px; } .meter { margin:8px 0 9px; } .control { min-height:37px; } .footnote { margin-top:6px; } }
+    @media (prefers-reduced-motion: reduce) { *,*::before,*::after { animation-duration:.01ms!important; transition-duration:.01ms!important; } }
+  </style>
+</head>
+<body>
+  <main class="stage" id="stage">
+    <video id="camera" playsinline muted></video>
+    <canvas id="fx" aria-hidden="true"></canvas>
+    <div class="shade"></div><div class="grain"></div>
+    <header class="topbar">
+      <div class="brand">
+        <div class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 18.5 9.1 5.5 14.4 18.5 20 5.5" stroke="#9df8ff" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round"/><circle cx="4" cy="18.5" r="1.4" fill="#b89bff"/><circle cx="20" cy="5.5" r="1.4" fill="#ff9be4"/></svg></div>
+        <div><div class="brand-title">Air Harp</div><div class="brand-sub">Fili di luce · 01</div></div>
+      </div>
+      <div class="status" id="status"><span class="status-dot"></span><span id="statusText">In attesa</span></div>
+    </header>
+    <div class="aim" aria-hidden="true"></div>
+    <section class="intro" id="intro">
+      <div class="eyebrow">Uno strumento fatto di gesti</div>
+      <h1>Tocca<br>l’<span>aria.</span></h1>
+      <p>Apri la mano davanti alla fotocamera. Tendi i fili tra le dita, cambia il tono e pizzicali con un movimento rapido.</p>
+      <button class="primary" id="startBtn">Attiva fotocamera</button>
+      <div class="privacy">Il video viene elaborato sul dispositivo e non viene registrato.</div>
+    </section>
+    <div class="hint" id="hint">Mostra una mano alla fotocamera</div>
+    <div class="corner">Allunga · ascolta · pizzica</div>
+    <section class="dock" aria-label="Controlli dello strumento">
+      <div class="dock-card">
+        <div class="dock-head"><div class="meter-label">Tensione <b id="tensionText">in attesa</b></div><div class="note" id="noteText">— Hz</div></div>
+        <div class="meter"><div class="meter-fill" id="meterFill"></div></div>
+        <div class="controls">
+          <button class="control sound on" id="soundBtn"><span class="sound-icon">♫</span><span id="soundLabel">Suono attivo</span></button>
+          <button class="control lock" id="lockBtn" aria-pressed="false">Blocca fili</button>
+          <button class="control reset" id="resetBtn">Azzera fili</button>
+          <button class="control reset" id="stopBtn" aria-label="Spegni fotocamera">Spegni</button>
+        </div>
+        <div class="footnote">Blocca fili per fissare posizione e note · Scatto rapido: pizzica</div>
+      </div>
+    </section>
+    <div class="loader" id="loader"><div class="loader-box"><span class="spinner"></span><span id="loaderText">Avvio della fotocamera…</span></div></div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </main>
+  <script type="module">
+    import { FilesetResolver, HandLandmarker } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.3/vision_bundle.mjs";
+
+    const MODEL_URL = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
+    const WASM_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.3/wasm";
+    const stage = document.getElementById("stage");
+    const video = document.getElementById("camera");
+    const canvas = document.getElementById("fx");
+    const ctx = canvas.getContext("2d", { alpha: true });
+    const status = document.getElementById("status");
+    const statusText = document.getElementById("statusText");
+    const loader = document.getElementById("loader");
+    const loaderText = document.getElementById("loaderText");
+    const toast = document.getElementById("toast");
+    const meterFill = document.getElementById("meterFill");
+    const tensionText = document.getElementById("tensionText");
+    const noteText = document.getElementById("noteText");
+    const hint = document.getElementById("hint");
+    const startBtn = document.getElementById("startBtn");
+    const soundBtn = document.getElementById("soundBtn");
+    const soundLabel = document.getElementById("soundLabel");
+    const resetBtn = document.getElementById("resetBtn");
+    const stopBtn = document.getElementById("stopBtn");
+    const lockBtn = document.getElementById("lockBtn");
+    let landmarker = null;
+    let stream = null;
+    let running = false;
+    let soundEnabled = true;
+    let audio = null;
+    let sustained = null;
+    let lastVideoTime = -1;
+    let lastInferenceAt = 0;
+    let currentLandmarks = null;
+    let previousFingertips = new Map();
+    let trails = [];
+    let sparks = [];
+    let toastTimer = 0;
+    let lastHandAt = 0;
+    let stringsLocked = false;
+    let lockedStrings = null;
+    let lockedMain = null;
+
+    const fingers = [4, 8, 12, 16, 20];
+    const stringPairs = [[4,8],[8,12],[12,16],[16,20]];
+    const PALETTE = ["#78f5ff", "#91c8ff", "#b99bff", "#ff9bdc"];
+
+    function setStatus(label, mode="") {
+      statusText.textContent = label;
+      status.className = `status ${mode}`;
+    }
+    function showToast(message, ms=3000) {
+      toast.textContent = message;
+      toast.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove("show"), ms);
+    }
+    function showLoader(message) {
+      loaderText.textContent = message;
+      loader.classList.add("show");
+    }
+    function hideLoader() { loader.classList.remove("show"); }
+
+    function resizeCanvas() {
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      const w = Math.max(1, Math.floor(window.innerWidth * dpr));
+      const h = Math.max(1, Math.floor(window.innerHeight * dpr));
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w; canvas.height = h;
+        canvas.style.width = `${window.innerWidth}px`;
+        canvas.style.height = `${window.innerHeight}px`;
+      }
+    }
+    window.addEventListener("resize", resizeCanvas, { passive: true });
+    resizeCanvas();
+
+    function point(lm) {
+      const w = video.videoWidth || 640, h = video.videoHeight || 480;
+      const scale = Math.max(canvas.width / w, canvas.height / h);
+      const drawnW = w * scale, drawnH = h * scale;
+      const dx = (canvas.width - drawnW) / 2, dy = (canvas.height - drawnH) / 2;
+      return { x: canvas.width - (dx + lm.x * drawnW), y: dy + lm.y * drawnH };
+    }
+    function distance(a,b) { return Math.hypot(a.x-b.x,a.y-b.y); }
+    function clamp(v,min,max) { return Math.min(max,Math.max(min,v)); }
+    function mapRange(v,inMin,inMax,outMin,outMax) {
+      const t=clamp((v-inMin)/(inMax-inMin),0,1);
+      return outMin + t*(outMax-outMin);
+    }
+    function noteForFrequency(freq) {
+      const noteNames=["Do","Do♯","Re","Mi♭","Mi","Fa","Fa♯","Sol","Sol♯","La","Si♭","Si"];
+      const midi=Math.round(69+12*Math.log2(freq/440));
+      return noteNames[((midi%12)+12)%12] + (Math.floor(midi/12)-1);
+    }
+    function setStringsLocked(locked, notify=true) {
+      if (locked) {
+        if (!currentLandmarks || !stage.classList.contains("has-hand")) {
+          showToast("Mostra la mano e allarga le dita prima di bloccare i fili.");
+          return;
+        }
+        lockedStrings=stringPairs.map(([a,b])=>{
+          const pa=point(currentLandmarks[a]), pb=point(currentLandmarks[b]);
+          const gap=distance(pa,pb);
+          return {
+            a:{x:pa.x/canvas.width,y:pa.y/canvas.height},
+            b:{x:pb.x/canvas.width,y:pb.y/canvas.height},
+            frequency:mapRange(gap,18,125,210,880)
+          };
+        });
+        const thumb=point(currentLandmarks[4]), index=point(currentLandmarks[8]);
+        const mainLength=distance(thumb,index);
+        const frequency=mapRange(mainLength,25,170,155,790);
+        lockedMain={frequency,tension:clamp((mainLength-25)/145,0,1),note:noteForFrequency(frequency)};
+        stringsLocked=true;
+        lockBtn.textContent="Sblocca";
+        lockBtn.setAttribute("aria-pressed","true");
+        lockBtn.classList.add("active");
+        if(notify) showToast("Fili e note fissati. Pizzica con piccoli scatti; premi Sblocca per cambiare posizione.");
+      } else {
+        stringsLocked=false;
+        lockedStrings=null;
+        lockedMain=null;
+        lockBtn.textContent="Blocca fili";
+        lockBtn.setAttribute("aria-pressed","false");
+        lockBtn.classList.remove("active");
+        if(notify) showToast("Fili sbloccati: muovi le dita per cambiare posizione e intonazione.");
+      }
+    }
+
+    function ensureAudio() {
+      if (!audio) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) throw new Error("Questo browser non supporta l’audio sintetico.");
+        audio = new AC();
+      }
+      if (audio.state === "suspended") audio.resume();
+    }
+    function createSustain() {
+      if (!audio || sustained) return;
+      const out = audio.createGain();
+      const filter = audio.createBiquadFilter();
+      filter.type = "lowpass"; filter.frequency.value = 3600; filter.Q.value = .7;
+      out.gain.value = .0001;
+      filter.connect(out); out.connect(audio.destination);
+      const fundamental = audio.createOscillator();
+      const overtone = audio.createOscillator();
+      fundamental.type = "triangle"; overtone.type = "sine";
+      fundamental.frequency.value = 220; overtone.frequency.value = 440;
+      const overtoneGain = audio.createGain(); overtoneGain.gain.value = .14;
+      fundamental.connect(filter); overtone.connect(overtoneGain); overtoneGain.connect(filter);
+      fundamental.start(); overtone.start();
+      sustained = { out, filter, fundamental, overtone, active: false };
+    }
+    function updateSustain(freq, tension) {
+      if (!soundEnabled || !audio) return;
+      createSustain();
+      const now = audio.currentTime;
+      const target = tension > .1 ? .025 + tension * .075 : .0001;
+      sustained.fundamental.frequency.setTargetAtTime(freq, now, .035);
+      sustained.overtone.frequency.setTargetAtTime(freq * 2.01, now, .04);
+      sustained.filter.frequency.setTargetAtTime(900 + tension * 3100, now, .06);
+      sustained.out.gain.setTargetAtTime(target, now, target > sustained.out.gain.value ? .04 : .12);
+      sustained.active = tension > .1;
+    }
+    function pluck(freq, strength=.75) {
+      if (!soundEnabled || !audio) return;
+      const now = audio.currentTime;
+      const voice = audio.createGain();
+      const filter = audio.createBiquadFilter();
+      filter.type = "lowpass"; filter.frequency.value = 4500; filter.Q.value = .9;
+      voice.gain.setValueAtTime(.0001, now);
+      voice.gain.exponentialRampToValueAtTime(.12 * strength, now + .009);
+      voice.gain.exponentialRampToValueAtTime(.0001, now + .78);
+      filter.connect(voice); voice.connect(audio.destination);
+      const osc = audio.createOscillator();
+      const harmonic = audio.createOscillator();
+      const harmonicGain = audio.createGain(); harmonicGain.gain.value = .19;
+      osc.type = "triangle"; harmonic.type = "sine";
+      osc.frequency.setValueAtTime(freq, now);
+      harmonic.frequency.setValueAtTime(freq * 2.01, now);
+      osc.connect(filter); harmonic.connect(harmonicGain); harmonicGain.connect(filter);
+      osc.start(now); harmonic.start(now);
+      osc.stop(now + .8); harmonic.stop(now + .8);
+      osc.addEventListener("ended", () => { osc.disconnect(); harmonic.disconnect(); filter.disconnect(); voice.disconnect(); }, { once:true });
+    }
+    function setSound(enabled) {
+      soundEnabled = enabled;
+      soundBtn.classList.toggle("on", enabled);
+      soundLabel.textContent = enabled ? "Suono attivo" : "Suono disattivato";
+      if (!enabled && sustained && audio) {
+        sustained.out.gain.setTargetAtTime(.0001, audio.currentTime, .04);
+        sustained.active = false;
+      } else if (enabled && audio?.state === "suspended") audio.resume();
+    }
+
+    function addSpark(p, color, speed) {
+      const count = Math.round(mapRange(speed, 350, 1300, 8, 21));
+      for (let i=0;i<count;i++) {
+        const angle = Math.random()*Math.PI*2;
+        const velocity = 35 + Math.random()*Math.min(speed*.32,340);
+        sparks.push({ x:p.x,y:p.y,vx:Math.cos(angle)*velocity,vy:Math.sin(angle)*velocity,
+          born:performance.now(),life:360+Math.random()*440,size:1+Math.random()*2.8,color });
+      }
+      if (sparks.length>260) sparks.splice(0,sparks.length-260);
+    }
+
+    function processHand(landmarks, now) {
+      currentLandmarks = landmarks || null;
+      if (!landmarks) {
+        if (now-lastHandAt>350) {
+          stage.classList.remove("has-hand");
+          hint.textContent = stringsLocked ? "Fili fissi: mostra la mano e pizzica una corda" : "Mostra una mano alla fotocamera";
+          if (stringsLocked && lockedMain) {
+            tensionText.textContent = "fili fissi";
+            meterFill.style.width = `${Math.max(4,lockedMain.tension*100)}%`;
+            noteText.textContent = `${Math.round(lockedMain.frequency)} Hz · ${lockedMain.note}`;
+            if (audio && sustained) updateSustain(lockedMain.frequency,lockedMain.tension);
+          } else {
+            tensionText.textContent = "mostra la mano";
+            meterFill.style.width = "3%";
+            noteText.textContent = "— Hz";
+            if (audio && sustained) updateSustain(220,0);
+          }
+          previousFingertips.clear();
+        }
+        return;
+      }
+      lastHandAt = now;
+      stage.classList.add("has-hand");
+      const fingerPoints = fingers.map(index => point(landmarks[index]));
+      const thumb = fingerPoints[0], index = fingerPoints[1];
+      const mainLength = distance(thumb,index);
+      const tension = clamp((mainLength-25)/145,0,1);
+      const freq = mapRange(mainLength,25,170,155,790);
+      if (stringsLocked && lockedMain) {
+        tensionText.textContent = "fili fissi";
+        meterFill.style.width = `${Math.max(4,lockedMain.tension*100)}%`;
+        noteText.textContent = `${Math.round(lockedMain.frequency)} Hz · ${lockedMain.note}`;
+        updateSustain(lockedMain.frequency,lockedMain.tension);
+      } else {
+        tensionText.textContent = tension<.1 ? "rilasciato" : `${Math.round(tension*100)}%`;
+        meterFill.style.width = `${Math.max(4,tension*100)}%`;
+        noteText.textContent = `${Math.round(freq)} Hz · ${noteForFrequency(freq)}`;
+        updateSustain(freq,tension);
+      }
+
+      const tipIndices=[4,8,12,16,20];
+      for (let i=0;i<tipIndices.length;i++) {
+        const p=fingerPoints[i], key=tipIndices[i], prev=previousFingertips.get(key);
+        if (prev) {
+          const dt=Math.max(.008,(now-prev.t)/1000);
+          const dx=p.x-prev.x, dy=p.y-prev.y;
+          const speed=Math.hypot(dx,dy)/dt;
+          if (speed>630 && now-prev.plucked>240) {
+            const pairIndex=clamp(i===0?0:i-1,0,stringPairs.length-1);
+            const a=point(landmarks[stringPairs[pairIndex][0]]), b=point(landmarks[stringPairs[pairIndex][1]]);
+            const gap=distance(a,b);
+            const pluckFreq=stringsLocked && lockedStrings ? lockedStrings[pairIndex].frequency : mapRange(gap,18,125,210,880);
+            pluck(pluckFreq,clamp(speed/1100,.35,1));
+            addSpark(p,PALETTE[pairIndex],speed);
+            previousFingertips.set(key,{x:p.x,y:p.y,t:now,plucked:now});
+          } else previousFingertips.set(key,{x:p.x,y:p.y,t:now,plucked:prev.plucked});
+        } else previousFingertips.set(key,{x:p.x,y:p.y,t:now,plucked:0});
+      }
+      const tip=fingerPoints[1];
+      const lastTrail=trails[trails.length-1];
+      if (!lastTrail || distance(lastTrail,tip)>5) trails.push({x:tip.x,y:tip.y,t:now});
+      trails=trails.filter(item=>now-item.t<4200);
+    }
+
+    function draw(now) {
+      resizeCanvas();
+      const W=canvas.width,H=canvas.height;
+      ctx.clearRect(0,0,W,H);
+      const lm=currentLandmarks;
+      if (stage.classList.contains("live") && (lm || (stringsLocked && lockedStrings))) {
+        const pts=lm ? lm.map(point) : null;
+        // Fine hand structure, like the guide lines of a playable instrument.
+        const bones=[[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
+        ctx.save(); ctx.globalCompositeOperation="lighter";
+        ctx.lineCap="round"; ctx.lineJoin="round";
+        if (pts && !stringsLocked) {
+          for(const [a,b] of bones){
+            ctx.beginPath();ctx.moveTo(pts[a].x,pts[a].y);ctx.lineTo(pts[b].x,pts[b].y);
+            ctx.strokeStyle="rgba(116,206,255,.27)";ctx.lineWidth=Math.max(1,W/1000);ctx.stroke();
+          }
+        }
+        // The four spaces between fingertips become bright, tension-responsive strings.
+        for(let i=0;i<stringPairs.length;i++){
+          const [a,b]=stringPairs[i];
+          const pa=stringsLocked && lockedStrings ? {x:lockedStrings[i].a.x*W,y:lockedStrings[i].a.y*H} : pts[a];
+          const pb=stringsLocked && lockedStrings ? {x:lockedStrings[i].b.x*W,y:lockedStrings[i].b.y*H} : pts[b];
+          const t=i===0?(stringsLocked?lockedMain?.tension??.26:clamp((distance(pa,pb)-25)/145,0,1)):.26;
+          const alpha=i===0?.57+t*.4:.29;
+          ctx.beginPath();ctx.moveTo(pa.x,pa.y);ctx.lineTo(pb.x,pb.y);
+          ctx.strokeStyle=PALETTE[i];ctx.globalAlpha=alpha;ctx.lineWidth=(i===0?1.6+t*2.5:1.15)*Math.min(W,H)/520;
+          ctx.shadowColor=PALETTE[i];ctx.shadowBlur=(i===0?12+t*20:8)*Math.min(W,H)/520;ctx.stroke();
+          ctx.globalAlpha=1;ctx.shadowBlur=0;
+        }
+        if (stringsLocked && lockedStrings) {
+          const anchors=[lockedStrings[0].a,...lockedStrings.map(item=>item.b)];
+          for(const anchor of anchors){
+            const x=anchor.x*W,y=anchor.y*H,r=3*Math.min(W,H)/520;
+            ctx.beginPath();ctx.arc(x,y,r*2.2,0,Math.PI*2);ctx.strokeStyle="rgba(230,247,255,.72)";ctx.lineWidth=Math.max(1,W/1100);ctx.stroke();
+          }
+        }
+        // A short luminous trail accumulates behind the index fingertip.
+        if(trails.length>1){
+          for(let i=1;i<trails.length;i++){
+            const a=trails[i-1],b=trails[i],age=(now-b.t)/4200;
+            ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);
+            ctx.strokeStyle=`rgba(190,157,255,${(1-age)*.62})`;ctx.lineWidth=(1-age*0.6)*Math.min(W,H)/420;ctx.shadowColor="#b99bff";ctx.shadowBlur=12;ctx.stroke();
+          }
+        }
+        // Fingertip nodes.
+        if (pts) {
+          for(let i=0;i<fingers.length;i++){
+            const p=pts[fingers[i]],r=(i===1?4:2.6)*Math.min(W,H)/480;
+            ctx.beginPath();ctx.arc(p.x,p.y,r*2.4,0,Math.PI*2);ctx.fillStyle=`${PALETTE[Math.max(0,i-1)]}22`;ctx.fill();
+            ctx.beginPath();ctx.arc(p.x,p.y,r,0,Math.PI*2);ctx.fillStyle=i===1?"#e8ffff":"#d9e9ff";ctx.shadowColor=PALETTE[Math.max(0,i-1)];ctx.shadowBlur=12;ctx.fill();ctx.shadowBlur=0;
+          }
+        }
+        ctx.restore();
+      }
+      const alive=[];
+      ctx.save();ctx.globalCompositeOperation="lighter";
+      for(const s of sparks){
+        const age=(now-s.born)/s.life;if(age>=1)continue;
+        const dt=1/60;s.x+=s.vx*dt;s.y+=s.vy*dt;s.vx*=.982;s.vy=s.vy*.982+18;
+        ctx.globalAlpha=(1-age)*(1-age);ctx.fillStyle=s.color;ctx.shadowColor=s.color;ctx.shadowBlur=9;
+        ctx.beginPath();ctx.arc(s.x,s.y,s.size*(1-age*.5)*Math.min(W,H)/700,0,Math.PI*2);ctx.fill();alive.push(s);
+      }
+      sparks=alive;ctx.restore();
+      requestAnimationFrame(draw);
+    }
+    requestAnimationFrame(draw);
+
+    async function start() {
+      if (running) return;
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setStatus("Apri la pagina via HTTPS", "error");
+        showToast("Per usare la fotocamera, apri il link del sito in Chrome e consenti l’accesso alla camera.", 6000);
+        return;
+      }
+      startBtn.disabled=true;
+      showLoader("Avvio della fotocamera…");
+      setStatus("Avvio camera", "loading");
+      try {
+        ensureAudio();
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio:false,
+          video:{facingMode:{ideal:"user"},width:{ideal:640},height:{ideal:480},frameRate:{ideal:30,max:30}}
+        });
+        video.srcObject=stream;
+        await video.play();
+        loaderText.textContent="Caricamento del tracciamento…";
+        const vision=await FilesetResolver.forVisionTasks(WASM_URL);
+        try {
+          landmarker=await HandLandmarker.createFromOptions(vision,{
+            baseOptions:{modelAssetPath:MODEL_URL,delegate:"GPU"},
+            runningMode:"VIDEO",numHands:1,
+            minHandDetectionConfidence:.48,minHandPresenceConfidence:.48,minTrackingConfidence:.46
+          });
+        } catch(gpuError) {
+          landmarker=await HandLandmarker.createFromOptions(vision,{
+            baseOptions:{modelAssetPath:MODEL_URL,delegate:"CPU"},
+            runningMode:"VIDEO",numHands:1,
+            minHandDetectionConfidence:.48,minHandPresenceConfidence:.48,minTrackingConfidence:.46
+          });
+        }
+        running=true;
+        stage.classList.add("live");
+        setStatus("In ascolto", "live");
+        hideLoader();
+        showToast("Mostra una mano. Allunga pollice e indice per cambiare tono.");
+        requestAnimationFrame(trackLoop);
+      } catch(error) {
+        console.error(error);
+        stream?.getTracks().forEach(t=>t.stop());stream=null;
+        video.srcObject=null;
+        hideLoader();startBtn.disabled=false;
+        setStatus("Fotocamera non avviata", "error");
+        const message=error?.name==="NotAllowedError" ? "Accesso alla fotocamera negato. Consenti la camera nelle impostazioni del browser e riprova." :
+          error?.name==="NotFoundError" ? "Non trovo una fotocamera disponibile." : "Non sono riuscito ad avviare il tracking. Riprova con una connessione internet attiva.";
+        showToast(message,6500);
+      }
+    }
+    function trackLoop(now) {
+      if (!running) return;
+      if (video.readyState>=2 && video.currentTime!==lastVideoTime && now-lastInferenceAt>32) {
+        lastVideoTime=video.currentTime;lastInferenceAt=now;
+        try {
+          const result=landmarker.detectForVideo(video,now);
+          processHand(result.landmarks?.[0] || null,now);
+        } catch(error) {
+          console.warn("Hand tracking frame skipped",error);
+        }
+      }
+      requestAnimationFrame(trackLoop);
+    }
+    async function stop() {
+      running=false;
+      stream?.getTracks().forEach(t=>t.stop());stream=null;
+      video.srcObject=null;currentLandmarks=null;
+      if (landmarker) { landmarker.close();landmarker=null; }
+      setStringsLocked(false,false);
+      stage.classList.remove("live","has-hand");
+      startBtn.disabled=false;
+      setStatus("In attesa");
+      if(audio){await audio.close();audio=null;sustained=null;}
+    }
+    startBtn.addEventListener("click",start);
+    soundBtn.addEventListener("click",()=>{setSound(!soundEnabled);if(soundEnabled){try{ensureAudio();}catch(e){showToast(e.message);}}});
+    lockBtn.addEventListener("click",()=>setStringsLocked(!stringsLocked));
+    resetBtn.addEventListener("click",()=>{trails=[];sparks=[];if(stringsLocked)setStringsLocked(false,false);showToast("Fili azzerati e sbloccati.",1700);});
+    stopBtn.addEventListener("click",stop);
+    document.addEventListener("visibilitychange",()=>{if(document.hidden && running) stop();});
+    window.addEventListener("pagehide",()=>{if(running)stop();});
+  </script>
+</body>
+</html>
