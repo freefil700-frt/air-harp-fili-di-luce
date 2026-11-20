@@ -63,9 +63,12 @@
     .stage.live .hint { opacity:1; }
     .stage.live.has-hand .hint { opacity:0; }
     .dock { position:absolute; z-index:4; left:14px; right:14px; bottom:calc(13px + var(--safe-bottom)); display:flex; justify-content:center; pointer-events:none; }
-    .dock-card { pointer-events:auto; width:min(100%,520px); padding:13px 14px 12px; border:1px solid rgba(219,235,255,.15); border-radius:21px; background:var(--panel); box-shadow:0 12px 50px rgba(0,0,0,.38); backdrop-filter:blur(22px); opacity:0; transform:translateY(18px); transition:opacity .4s ease,transform .4s ease; }
+    .dock-card { position:relative; pointer-events:auto; width:min(100%,520px); padding:52px 14px 12px; border:1px solid rgba(219,235,255,.15); border-radius:21px; background:var(--panel); box-shadow:0 12px 50px rgba(0,0,0,.38); backdrop-filter:blur(22px); opacity:0; transform:translateY(18px); transition:opacity .4s ease,transform .4s ease; }
     .stage:not(.live) .dock-card { visibility:hidden; }
     .stage.live .dock-card { opacity:1; transform:translateY(0); }
+    .dock.collapsed .dock-card { transform:translateY(calc(100% - 48px)); }
+    .dock-toggle { position:absolute; top:8px; left:50%; transform:translateX(-50%); min-height:34px; padding:0 14px; border:1px solid rgba(215,231,250,.16); border-radius:12px; background:rgba(255,255,255,.07); color:#dffaff; font-size:11px; cursor:pointer; white-space:nowrap; }
+    .dock-toggle span { display:inline-block; margin-left:7px; color:var(--cyan); font-size:14px; }
     .dock-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
     .meter-label { display:flex; align-items:center; gap:7px; color:#aebbd0; font-size:10px; text-transform:uppercase; letter-spacing:.14em; }
     .meter-label b { color:#eef8ff; font-weight:650; letter-spacing:.04em; text-transform:none; }
@@ -73,9 +76,11 @@
     .meter { height:3px; margin:11px 0 12px; overflow:hidden; border-radius:99px; background:rgba(255,255,255,.09); }
     .meter-fill { width:4%; height:100%; border-radius:inherit; background:linear-gradient(90deg,var(--cyan),var(--violet),var(--pink)); box-shadow:0 0 12px rgba(120,245,255,.8); transition:width .1s linear; }
     .controls { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+    .sound-row { grid-column:1/-1; display:grid; grid-template-columns:1fr 1.15fr; gap:8px; }
+    .sound-select { width:100%; min-height:42px; padding:0 10px; border:1px solid rgba(215,231,250,.13); border-radius:13px; background:#151d2a; color:#e3ecf7; font:inherit; font-size:12px; }
     .control { min-height:42px; padding:0 13px; border:1px solid rgba(215,231,250,.13); border-radius:13px; background:rgba(255,255,255,.055); color:#e3ecf7; font-size:12px; cursor:pointer; }
     .control:active { transform:scale(.97); }
-    .control.sound { grid-column:1 / -1; text-align:left; }
+    .control.sound { text-align:left; }
     .control.lock.active { border-color:rgba(120,245,255,.42); background:rgba(120,245,255,.1); color:#bafaff; }
     .control.sound.on { border-color:rgba(120,245,255,.36); background:rgba(120,245,255,.09); color:#bafaff; }
     .control.reset { color:#aab5c6; }
@@ -95,8 +100,8 @@
     .loader-box { display:flex; align-items:center; gap:12px; padding:14px 17px; border:1px solid var(--line); border-radius:16px; background:rgba(15,20,30,.88); color:#d9e6f6; font-size:12px; }
     .spinner { width:17px;height:17px;border:2px solid rgba(255,255,255,.2);border-top-color:var(--cyan);border-radius:50%;animation:spin .8s linear infinite; }
     @keyframes spin { to { transform:rotate(360deg); } }
-    @media (min-width:760px) { .topbar { left:26px;right:26px;top:22px; } .dock { bottom:22px; } .stage.live .camera { opacity:.75; } .controls { display:flex; } .control.sound { grid-column:auto; flex:1; } .effect-controls { justify-content:flex-end; } }
-    @media (max-height:650px) { .intro { top:48%; } .intro h1 { font-size:42px; margin:9px 0 7px; } .intro p { font-size:12px; } .primary { min-height:44px; margin-top:15px; } .privacy { margin-top:8px; } .dock-card { padding:10px 12px 9px; } .meter { margin:8px 0 9px; } .control { min-height:37px; } .footnote { margin-top:6px; } }
+    @media (min-width:760px) { .topbar { left:26px;right:26px;top:22px; } .dock { bottom:22px; } .stage.live .camera { opacity:.75; } .controls { display:grid; grid-template-columns:1fr 1fr 1fr; } .sound-row { grid-column:1/-1; grid-template-columns:1fr 1.15fr; } .effect-controls { justify-content:flex-end; } }
+    @media (max-height:650px) { .intro { top:48%; } .intro h1 { font-size:42px; margin:9px 0 7px; } .intro p { font-size:12px; } .primary { min-height:44px; margin-top:15px; } .privacy { margin-top:8px; } .dock-card { padding:48px 12px 9px; } .meter { margin:8px 0 9px; } .control { min-height:37px; } .footnote { margin-top:6px; } }
     @media (prefers-reduced-motion: reduce) { *,*::before,*::after { animation-duration:.01ms!important; transition-duration:.01ms!important; } }
   </style>
 </head>
@@ -122,12 +127,13 @@
     </section>
     <div class="hint" id="hint">Pinza i due estremi con entrambe le mani, tendi e apri le dita. Poi pizzica il filo con un dito.</div>
     <div class="corner">Allunga · ascolta · pizzica</div>
-    <section class="dock" aria-label="Controlli dello strumento">
-      <div class="dock-card">
+    <section class="dock collapsed" id="dock" aria-label="Controlli dello strumento">
+      <div class="dock-card" id="dockCard">
+        <button class="dock-toggle" id="dockToggle" type="button" aria-expanded="false">Mostra controlli <span id="dockToggleArrow">⌃</span></button>
         <div class="dock-head"><div class="meter-label">Tensione <b id="tensionText">in attesa</b></div><div class="note" id="noteText">— Hz</div></div>
         <div class="meter"><div class="meter-fill" id="meterFill"></div></div>
         <div class="controls">
-          <button class="control sound on" id="soundBtn"><span class="sound-icon">♫</span><span id="soundLabel">Suono attivo</span></button>
+          <div class="sound-row"><button class="control sound on" id="soundBtn"><span class="sound-icon">♫</span><span id="soundLabel">Suono attivo</span></button><select class="sound-select" id="soundSelect" aria-label="Scegli il timbro"><option value="harp">Arpa</option><option value="guitar">Chitarra</option><option value="bass">Bass synth</option><option value="pad">Strings pad</option></select></div>
           <button class="control reset" id="undoBtn">Annulla ultimo</button>
           <button class="control reset" id="resetBtn">Azzera fili</button>
           <button class="control reset" id="stopBtn" aria-label="Spegni fotocamera">Spegni</button>
@@ -152,11 +158,11 @@
     const meterFill=document.getElementById("meterFill"),tensionText=document.getElementById("tensionText"),noteText=document.getElementById("noteText");
     const hint=document.getElementById("hint"),startBtn=document.getElementById("startBtn"),soundBtn=document.getElementById("soundBtn");
     const soundLabel=document.getElementById("soundLabel"),resetBtn=document.getElementById("resetBtn"),undoBtn=document.getElementById("undoBtn");
-    const stopBtn=document.getElementById("stopBtn"),reverbKnob=document.getElementById("reverbKnob"),delayKnob=document.getElementById("delayKnob");
+    const stopBtn=document.getElementById("stopBtn"),dock=document.getElementById("dock"),dockToggle=document.getElementById("dockToggle"),dockToggleArrow=document.getElementById("dockToggleArrow"),soundSelect=document.getElementById("soundSelect"),reverbKnob=document.getElementById("reverbKnob"),delayKnob=document.getElementById("delayKnob");
     const reverbValue=document.getElementById("reverbValue"),delayValue=document.getElementById("delayValue");
     let landmarker=null,stream=null,running=false,soundEnabled=true,audio=null,audioGraph=null;
     let lastVideoTime=-1,lastInferenceAt=0,currentHands=[],previousTips=new Map(),pinchStates=new Map();
-    let strings=[],activeString=null,trails=[],sparks=[],toastTimer=0,lastHandAt=0,reverbAmount=0,delayAmount=0,lastPlayed=null;
+    let strings=[],activeString=null,trails=[],sparks=[],toastTimer=0,lastHandAt=0,reverbAmount=0,delayAmount=0,lastPlayed=null,soundPreset="harp";
     const fingerTips=[4,8,12,16,20],palette=["#78f5ff","#91c8ff","#b99bff","#ff9bdc","#a9ffd4","#ffd58c","#ffa4c7","#b5baff"];
 
     function setStatus(label,mode=""){statusText.textContent=label;status.className="status "+mode;}
@@ -179,12 +185,13 @@
     function midpoint(a,b){return{x:(a.x+b.x)/2,y:(a.y+b.y)/2};}
     function clamp(v,min,max){return Math.min(max,Math.max(min,v));}
     function noteForFrequency(freq){
-      const names=["Do","Do♯","Re","Mi♭","Mi","Fa","Fa♯","Sol","Sol♯","La","Si♭","Si"],midi=Math.round(69+12*Math.log2(freq/440));
+      const names=["C","C♯","D","D♯","E","F","F♯","G","G♯","A","A♯","B"],midi=Math.round(69+12*Math.log2(freq/440));
       return names[((midi%12)+12)%12]+(Math.floor(midi/12)-1);
     }
     function getTuning(span){
-      const shortSide=Math.min(canvas.width,canvas.height),tension=clamp((span-shortSide*.16)/(shortSide*.62),0,1);
-      return{tension:tension,frequency:55*Math.pow(16,tension)};
+      const shortSide=Math.min(canvas.width,canvas.height),minLength=shortSide*.12,maxLength=shortSide*.85;
+      const tension=clamp((span-minLength)/(maxLength-minLength),0,1);
+      return{tension:tension,frequency:32.7031956626*Math.pow(2,tension*5)};
     }
     function pointSegmentDistance(p,a,b){
       const dx=b.x-a.x,dy=b.y-a.y,len2=dx*dx+dy*dy;
@@ -309,20 +316,45 @@
     }
     function makeStringBuffer(freq){
       const sampleRate=audio.sampleRate,period=Math.max(2,Math.round(sampleRate/freq));
-      const duration=clamp(2.1*Math.pow(110/freq,.22),.75,2.4),length=Math.floor(sampleRate*duration),data=new Float32Array(length);
-      for(let i=0;i<period;i++)data[i]=Math.random()*2-1;
-      for(let i=period;i<length;i++)data[i]=.5*(data[i-period]+data[i-period+1])*.996;
+      const damping=soundPreset==="guitar"?.993:.997;
+      const duration=clamp((soundPreset==="guitar"?1.35:2.1)*Math.pow(110/freq,.22),.6,2.4),length=Math.floor(sampleRate*duration),data=new Float32Array(length);
+      for(let i=0;i<period;i++)data[i]=(Math.random()*2-1)*(i<period*.12?1.35:.72);
+      for(let i=period;i<length;i++)data[i]=.5*(data[i-period]+data[i-period+1])*damping;
       const buffer=audio.createBuffer(1,length,sampleRate);buffer.copyToChannel(data,0);return buffer;
+    }
+    function connectVoice(voice){
+      voice.connect(audioGraph.master);voice.connect(audioGraph.reverbSend);voice.connect(audioGraph.delaySend);
     }
     function pluck(freq,strength=.75){
       if(!soundEnabled||!audio)return;
-      const now=audio.currentTime,source=audio.createBufferSource(),filter=audio.createBiquadFilter(),voice=audio.createGain();
-      source.buffer=makeStringBuffer(freq);filter.type="lowpass";filter.frequency.value=1800+strength*4200;filter.Q.value=.55;
-      voice.gain.setValueAtTime(.0001,now);voice.gain.exponentialRampToValueAtTime(.19*strength,now+.006);
-      voice.gain.exponentialRampToValueAtTime(.0001,now+1.8);
-      source.connect(filter);filter.connect(voice);voice.connect(audioGraph.master);voice.connect(audioGraph.reverbSend);voice.connect(audioGraph.delaySend);
-      source.start(now);source.addEventListener("ended",function(){source.disconnect();filter.disconnect();voice.disconnect();},{once:true});
+      const now=audio.currentTime,voice=audio.createGain();connectVoice(voice);
+      if(soundPreset==="bass"||soundPreset==="pad"){
+        const pad=soundPreset==="pad",filter=audio.createBiquadFilter();filter.type="lowpass";
+        filter.frequency.setValueAtTime(pad?Math.min(4200,freq*8):Math.min(2400,freq*5),now);filter.Q.value=pad?.8:1.1;filter.connect(voice);
+        const oscillators=[];const count=pad?3:2;
+        for(let i=0;i<count;i++){
+          const osc=audio.createOscillator(),gain=audio.createGain();osc.type=pad?"sawtooth":(i===0?"sawtooth":"triangle");
+          osc.frequency.value=pad?freq*(i===0?.997:i===1?1.003:2):freq/(i===0?1:2);
+          gain.gain.value=pad?(i===2?.16:.34):(i===0?.62:.28);osc.connect(gain);gain.connect(filter);oscillators.push(osc);
+        }
+        const peak=(pad?.11:.2)*strength,attack=pad?.22:.012,release=pad?2.6:1.15;
+        voice.gain.setValueAtTime(.0001,now);voice.gain.exponentialRampToValueAtTime(peak,now+attack);
+        voice.gain.setTargetAtTime(pad?peak*.72:.0001,now+attack,pad?.55:.24);
+        voice.gain.setTargetAtTime(.0001,now+(pad?2.5:.8),release/4);
+        oscillators.forEach(function(osc){osc.start(now);osc.stop(now+(pad?5:2.8));});
+        oscillators[0].addEventListener("ended",function(){filter.disconnect();voice.disconnect();},{once:true});
+      }else{
+        const source=audio.createBufferSource(),filter=audio.createBiquadFilter();source.buffer=makeStringBuffer(freq);
+        filter.type="lowpass";filter.frequency.value=(soundPreset==="guitar"?2600:1800)+strength*(soundPreset==="guitar"?5000:4200);filter.Q.value=.55;
+        voice.gain.setValueAtTime(.0001,now);voice.gain.exponentialRampToValueAtTime((soundPreset==="guitar"?.16:.19)*strength,now+.006);
+        voice.gain.exponentialRampToValueAtTime(.0001,now+(soundPreset==="guitar"?1.4:1.8));
+        source.connect(filter);filter.connect(voice);source.start(now);
+        source.addEventListener("ended",function(){source.disconnect();filter.disconnect();voice.disconnect();},{once:true});
+      }
     }
+    function setDockCollapsed(collapsed){dock.classList.toggle("collapsed",collapsed);dockToggle.setAttribute("aria-expanded",String(!collapsed));dockToggle.firstChild.textContent=collapsed?"Mostra controlli ":"Nascondi controlli ";dockToggleArrow.textContent=collapsed?"⌃":"⌄";}
+    dockToggle.addEventListener("click",function(){setDockCollapsed(!dock.classList.contains("collapsed"));});
+    soundSelect.addEventListener("change",function(){soundPreset=soundSelect.value;showToast("Timbro: "+soundSelect.options[soundSelect.selectedIndex].text);});
     function setSound(enabled){soundEnabled=enabled;soundBtn.classList.toggle("on",enabled);soundLabel.textContent=enabled?"Suono attivo":"Suono disattivato";}
     function setKnob(knob,output,kind,value){
       const amount=clamp(Math.round(value),0,10);
@@ -402,7 +434,7 @@
           if(touched){
             touched.lastPlucked=now;lastPlayed=touched;pluck(touched.frequency,clamp(speed/950,.3,1));addSpark(hitPoint,touched.color,speed);
             tensionText.textContent="pizzicata · "+Math.round(touched.frequency)+" Hz";
-            meterFill.style.width=Math.max(4,touched.tension*100)+"%";noteText.textContent=noteForFrequency(touched.frequency);
+            meterFill.style.width=Math.max(4,touched.tension*100)+"%";noteText.textContent=noteForFrequency(touched.frequency)+" · "+Math.round(touched.frequency)+" Hz";
           }
           previousTips.set(key,{x:p.x,y:p.y,t:now});
         }
@@ -480,7 +512,7 @@
           landmarker=await HandLandmarker.createFromOptions(vision,{baseOptions:{modelAssetPath:MODEL_URL,delegate:"CPU"},runningMode:"VIDEO",numHands:2,
             minHandDetectionConfidence:.48,minHandPresenceConfidence:.48,minTrackingConfidence:.46});
         }
-        running=true;stage.classList.add("live");setStatus("In ascolto","live");hideLoader();
+        running=true;stage.classList.add("live");setDockCollapsed(true);setStatus("In ascolto","live");hideLoader();
         showToast("Afferra gli estremi con entrambe le mani, tendi e rilascia per fissare il filo.",5000);requestAnimationFrame(trackLoop);
       }catch(error){
         console.error(error);stream?.getTracks().forEach(function(track){track.stop();});stream=null;video.srcObject=null;
