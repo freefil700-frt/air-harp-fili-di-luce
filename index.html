@@ -180,7 +180,7 @@
     function showLoader(message){loaderText.textContent=message;loader.classList.add("show");}
     function hideLoader(){loader.classList.remove("show");}
     function resizeCanvas(){
-      const dpr=Math.min(window.devicePixelRatio||1,1.5),w=Math.max(1,Math.floor(window.innerWidth*dpr)),h=Math.max(1,Math.floor(window.innerHeight*dpr));
+      const dpr=Math.min(window.devicePixelRatio||1,window.innerWidth<760?1:1.35),w=Math.max(1,Math.floor(window.innerWidth*dpr)),h=Math.max(1,Math.floor(window.innerHeight*dpr));
       if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;canvas.style.width=window.innerWidth+"px";canvas.style.height=window.innerHeight+"px";}
     }
     window.addEventListener("resize",resizeCanvas,{passive:true});resizeCanvas();
@@ -539,7 +539,7 @@
       startBtn.disabled=true;showLoader("Avvio della fotocamera…");setStatus("Avvio camera","loading");
       try{
         ensureAudio();
-        stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:"user"},width:{ideal:640},height:{ideal:480},frameRate:{ideal:30,max:30}}});
+        stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:"user"},width:{ideal:480},height:{ideal:360},frameRate:{ideal:30,max:30}}});
         video.srcObject=stream;await video.play();loaderText.textContent="Caricamento del tracciamento…";
         try{await startHandWorker();}
         catch(workerError){
@@ -590,13 +590,20 @@
       catch(gpuError){landmarker=await HandLandmarker.createFromOptions(vision,{baseOptions:{modelAssetPath:MODEL_URL,delegate:"CPU"},runningMode:"VIDEO",numHands:2,
         minHandDetectionConfidence:.48,minHandPresenceConfidence:.48,minTrackingConfidence:.46});}
     }
+    async function captureTrackingFrame(){
+      const width=video.videoWidth||480,height=video.videoHeight||360,scale=Math.min(1,480/width,360/height);
+      if(scale>=.99)return createImageBitmap(video);
+      const options={resizeWidth:Math.max(1,Math.round(width*scale)),resizeHeight:Math.max(1,Math.round(height*scale)),resizeQuality:"low"};
+      try{return await createImageBitmap(video,options);}
+      catch(error){return createImageBitmap(video);}
+    }
     function trackLoop(now){
       if(!running)return;
       if(video.readyState>=2&&video.currentTime!==lastVideoTime&&now-lastInferenceAt>24){
         lastVideoTime=video.currentTime;lastInferenceAt=now;
         if(workerReady&&handWorker&&!workerPending){
           workerPending=true;
-          createImageBitmap(video).then(function(bitmap){
+          captureTrackingFrame().then(function(bitmap){
             if(running&&handWorker)handWorker.postMessage({type:"frame",bitmap:bitmap,timestamp:now},[bitmap]);
             else{bitmap.close();workerPending=false;}
           }).catch(function(error){workerPending=false;console.warn("Frame camera non trasferito",error);});
