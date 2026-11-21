@@ -76,7 +76,7 @@
     .meter { height:3px; margin:11px 0 12px; overflow:hidden; border-radius:99px; background:rgba(255,255,255,.09); }
     .meter-fill { width:4%; height:100%; border-radius:inherit; background:linear-gradient(90deg,var(--cyan),var(--violet),var(--pink)); box-shadow:0 0 12px rgba(120,245,255,.8); transition:width .1s linear; }
     .controls { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
-    .tools-row { grid-column:1/-1; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
+    .tools-row { grid-column:1/-1; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
     .control.tool { padding:0 7px; font-size:11px; }
     .control.tool.active { border-color:rgba(120,245,255,.52); background:rgba(120,245,255,.13); color:#bafaff; }
     .sound-row { grid-column:1/-1; display:grid; grid-template-columns:1fr 1.15fr; gap:8px; }
@@ -373,7 +373,7 @@
         source.addEventListener("ended",function(){source.disconnect();filter.disconnect();voice.disconnect();},{once:true});
       }
     }
-    function setDockCollapsed(collapsed){dock.classList.toggle("collapsed",collapsed);dockToggle.setAttribute("aria-expanded",String(!collapsed));dockToggle.firstChild.textContent=collapsed?"Mostra controlli ":"Nascondi controlli ";dockToggleArrow.textContent=collapsed?"⌃":"⌄";}
+    function setDockCollapsed(collapsed){dock.classList.toggle("collapsed",collapsed);dockToggle.setAttribute("aria-expanded",String(!collapsed));const modeLabel=editMode==="play"?"Suona":editMode==="tension"?"Tendi":editMode==="erase"?"Gomma":"Sposta";dockToggle.firstChild.textContent=collapsed?"Mostra controlli · "+modeLabel+" ":"Nascondi controlli · "+modeLabel+" ";dockToggleArrow.textContent=collapsed?"⌃":"⌄";}
     dockToggle.addEventListener("click",function(){setDockCollapsed(!dock.classList.contains("collapsed"));});
     soundSelect.addEventListener("change",function(){soundPreset=soundSelect.value;strings.forEach(prepareString);showToast("Timbro: "+soundSelect.options[soundSelect.selectedIndex].text);});
     function setSound(enabled){soundEnabled=enabled;soundBtn.classList.toggle("on",enabled);soundLabel.textContent=enabled?"Suono attivo":"Suono disattivato";}
@@ -392,13 +392,13 @@
       catch(error){trackingHands=previous;console.warn("Hand count update failed",error);showToast("Non riesco a cambiare il numero di mani tracciate.");}
     }
     function selectTool(mode){
-      if(activeString)cancelActiveString();editMode=mode;moveGesture=null;updateTrackingHands(mode==="tension"?2:1);
+      if(activeString)cancelActiveString();editMode=mode;moveGesture=null;updateTrackingHands(mode==="tension"?2:1);setDockCollapsed(dock.classList.contains("collapsed"));
       [[playTool,"play"],[tensionTool,"tension"],[eraseTool,"erase"],[moveTool,"move"]].forEach(function(entry){entry[0].classList.toggle("active",entry[1]===mode);entry[0].setAttribute("aria-pressed",String(entry[1]===mode));});
       const message=mode==="play"?"Modalità suona: tracciamento a una mano per ridurre la latenza.":mode==="tension"?"Tendi: pinza le due estremità e apri le dita per fissare il filo.":mode==="erase"?"Gomma: passa un dito attraverso il filo da cancellare.":"Sposta: pinza il filo al centro con una mano e trascinalo.";
       showToast(message,3500);
     }
     playTool.addEventListener("click",function(){selectTool("play");});
-    tensionTool.addEventListener("click",function(){selectTool(editMode==="tension"?"play":"tension");});
+    tensionTool.addEventListener("click",function(){selectTool("tension");});
     eraseTool.addEventListener("click",function(){selectTool(editMode==="erase"?"play":"erase");});
     moveTool.addEventListener("click",function(){selectTool(editMode==="move"?"play":"move");});
 
