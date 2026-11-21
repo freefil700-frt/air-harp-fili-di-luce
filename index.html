@@ -418,7 +418,7 @@
       if(!currentHands.length){
         if(now-lastHandAt>300){
           stage.classList.remove("has-hand");previousTips.clear();pinchStates.clear();
-          if(activeString)finishString();moveGesture=null;hint.textContent="Mostra entrambe le mani per tendere un filo.";updateReadout();
+          if(activeString)finishString();moveGesture=null;hint.textContent=editMode==="tension"?"Mostra entrambe le mani per tendere un filo.":strings.length?"Mostra una mano e pizzica un filo per suonarlo.":"Mostra una mano. Per creare un filo, scegli Tendi.";updateReadout();
         }
         return;
       }
