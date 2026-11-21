@@ -76,7 +76,7 @@
     .meter { height:3px; margin:11px 0 12px; overflow:hidden; border-radius:99px; background:rgba(255,255,255,.09); }
     .meter-fill { width:4%; height:100%; border-radius:inherit; background:linear-gradient(90deg,var(--cyan),var(--violet),var(--pink)); box-shadow:0 0 12px rgba(120,245,255,.8); transition:width .1s linear; }
     .controls { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
-    .tools-row { grid-column:1/-1; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+    .tools-row { grid-column:1/-1; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
     .control.tool { padding:0 7px; font-size:11px; }
     .control.tool.active { border-color:rgba(120,245,255,.52); background:rgba(120,245,255,.13); color:#bafaff; }
     .sound-row { grid-column:1/-1; display:grid; grid-template-columns:1fr 1.15fr; gap:8px; }
@@ -127,7 +127,7 @@
     <section class="intro" id="intro">
       <div class="eyebrow">Uno strumento fatto di gesti</div>
       <h1>Tocca<br>l’<span>aria.</span></h1>
-      <p>Pinza un’estremità con pollice e indice di ogni mano. Tendi il filo, apri le dita per fissarlo, poi pizzicalo con un dito.</p>
+      <p>Per suonare usa una mano. Per creare o ritensionare un filo, scegli “Tendi”, pinza le due estremità, poi apri le dita per fissarlo.</p>
       <button class="primary" id="startBtn">Attiva fotocamera</button>
       <div class="privacy">Il video viene elaborato sul dispositivo e non viene registrato.</div>
     </section>
@@ -140,7 +140,7 @@
         <div class="meter"><div class="meter-fill" id="meterFill"></div></div>
         <div class="controls">
           <div class="sound-row"><button class="control sound on" id="soundBtn"><span class="sound-icon">♫</span><span id="soundLabel">Suono attivo</span></button><select class="sound-select" id="soundSelect" aria-label="Scegli il timbro"><option value="harp">Arpa</option><option value="guitar">Chitarra</option><option value="bass">Bass synth</option><option value="pad">Strings pad</option></select></div>
-          <div class="tools-row" role="group" aria-label="Modalità di utilizzo dei fili"><button class="control tool active" id="playTool" type="button" aria-pressed="true">Suona</button><button class="control tool" id="eraseTool" type="button" aria-pressed="false">Gomma</button><button class="control tool" id="moveTool" type="button" aria-pressed="false">Sposta</button></div>
+          <div class="tools-row" role="group" aria-label="Modalità di utilizzo dei fili"><button class="control tool active" id="playTool" type="button" aria-pressed="true">Suona</button><button class="control tool" id="tensionTool" type="button" aria-pressed="false">Tendi</button><button class="control tool" id="eraseTool" type="button" aria-pressed="false">Gomma</button><button class="control tool" id="moveTool" type="button" aria-pressed="false">Sposta</button></div>
           <button class="control reset" id="undoBtn">Annulla ultimo</button>
           <button class="control reset" id="resetBtn">Azzera fili</button>
           <button class="control reset" id="stopBtn" aria-label="Spegni fotocamera">Spegni</button>
@@ -166,11 +166,11 @@
     const hint=document.getElementById("hint"),startBtn=document.getElementById("startBtn"),soundBtn=document.getElementById("soundBtn");
     const soundLabel=document.getElementById("soundLabel"),resetBtn=document.getElementById("resetBtn"),undoBtn=document.getElementById("undoBtn");
     const stopBtn=document.getElementById("stopBtn"),dock=document.getElementById("dock"),dockToggle=document.getElementById("dockToggle"),dockToggleArrow=document.getElementById("dockToggleArrow"),soundSelect=document.getElementById("soundSelect"),reverbFader=document.getElementById("reverbFader"),delayFader=document.getElementById("delayFader");
-    const playTool=document.getElementById("playTool"),eraseTool=document.getElementById("eraseTool"),moveTool=document.getElementById("moveTool");
+    const playTool=document.getElementById("playTool"),tensionTool=document.getElementById("tensionTool"),eraseTool=document.getElementById("eraseTool"),moveTool=document.getElementById("moveTool");
     const reverbValue=document.getElementById("reverbValue"),delayValue=document.getElementById("delayValue");
     let landmarker=null,stream=null,running=false,soundEnabled=true,audio=null,audioGraph=null;
     let lastVideoTime=-1,lastInferenceAt=0,currentHands=[],previousTips=new Map(),pinchStates=new Map();
-    let strings=[],activeString=null,moveGesture=null,editMode="play",trails=[],sparks=[],toastTimer=0,lastHandAt=0,reverbAmount=0,delayAmount=0,lastPlayed=null,soundPreset="harp",stringBufferCache=new Map();
+    let strings=[],activeString=null,moveGesture=null,editMode="play",trackingHands=1,trails=[],sparks=[],toastTimer=0,lastHandAt=0,reverbAmount=0,delayAmount=0,lastPlayed=null,soundPreset="harp",stringBufferCache=new Map();
     const fingerTips=[4,8,12,16,20],palette=["#78f5ff","#91c8ff","#b99bff","#ff9bdc","#a9ffd4","#ffd58c","#ffa4c7","#b5baff"];
 
     function setStatus(label,mode=""){statusText.textContent=label;status.className="status "+mode;}
@@ -385,13 +385,20 @@
     reverbFader.addEventListener("input",function(){setFader(reverbFader,reverbValue,"reverb",reverbFader.value);});
     delayFader.addEventListener("input",function(){setFader(delayFader,delayValue,"delay",delayFader.value);});
     setFader(reverbFader,reverbValue,"reverb",0);setFader(delayFader,delayValue,"delay",0);
+    async function updateTrackingHands(count){
+      if(!landmarker||trackingHands===count)return;
+      const previous=trackingHands;trackingHands=count;
+      try{await landmarker.setOptions({numHands:count});}
+      catch(error){trackingHands=previous;console.warn("Hand count update failed",error);showToast("Non riesco a cambiare il numero di mani tracciate.");}
+    }
     function selectTool(mode){
-      if(activeString)cancelActiveString();editMode=mode;moveGesture=null;
-      [[playTool,"play"],[eraseTool,"erase"],[moveTool,"move"]].forEach(function(entry){entry[0].classList.toggle("active",entry[1]===mode);entry[0].setAttribute("aria-pressed",String(entry[1]===mode));});
-      const message=mode==="play"?"Modalità suona: attraversa un filo con un dito.":mode==="erase"?"Gomma: passa un dito attraverso il filo da cancellare.":"Sposta: pinza il filo al centro con una mano e trascinalo.";
+      if(activeString)cancelActiveString();editMode=mode;moveGesture=null;updateTrackingHands(mode==="tension"?2:1);
+      [[playTool,"play"],[tensionTool,"tension"],[eraseTool,"erase"],[moveTool,"move"]].forEach(function(entry){entry[0].classList.toggle("active",entry[1]===mode);entry[0].setAttribute("aria-pressed",String(entry[1]===mode));});
+      const message=mode==="play"?"Modalità suona: tracciamento a una mano per ridurre la latenza.":mode==="tension"?"Tendi: pinza le due estremità e apri le dita per fissare il filo.":mode==="erase"?"Gomma: passa un dito attraverso il filo da cancellare.":"Sposta: pinza il filo al centro con una mano e trascinalo.";
       showToast(message,3500);
     }
     playTool.addEventListener("click",function(){selectTool("play");});
+    tensionTool.addEventListener("click",function(){selectTool(editMode==="tension"?"play":"tension");});
     eraseTool.addEventListener("click",function(){selectTool(editMode==="erase"?"play":"erase");});
     moveTool.addEventListener("click",function(){selectTool(editMode==="move"?"play":"move");});
 
@@ -417,7 +424,7 @@
       }
       lastHandAt=now;stage.classList.add("has-hand");
       const hands=currentHands,bothPinching=hands.length>=2&&hands[0].pinching&&hands[1].pinching;
-      if(editMode==="play"&&bothPinching&&!activeString)beginString(hands[0].pinch,hands[1].pinch);
+      if(editMode==="tension"&&bothPinching&&!activeString)beginString(hands[0].pinch,hands[1].pinch);
       if(editMode==="move"){
         const pinchingHand=hands.find(function(hand){return hand.pinching;});
         if(!moveGesture&&pinchingHand?.pinchStarted){
@@ -443,10 +450,11 @@
       }else updateReadout();
       if(editMode==="erase")hint.textContent="Gomma attiva: passa un dito attraverso il filo da cancellare.";
       else if(editMode==="move")hint.textContent="Sposta attivo: pizzica un filo al centro con una mano e trascinalo.";
-      else if(hands.length<2)hint.textContent="Mostra entrambe le mani per tendere un filo.";
-      else if(activeString)hint.textContent="Tendi o allenta il filo, poi apri entrambe le pinze per fissarlo.";
-      else if(strings.length)hint.textContent="Pizzica un filo con un dito oppure ritensionane uno o tendine uno nuovo con entrambe le mani.";
-      else hint.textContent="Pinza gli estremi con entrambe le mani, tendi e apri le dita.";
+      else if(editMode==="tension"&&hands.length<2)hint.textContent="Mostra entrambe le mani per tendere un filo.";
+      else if(editMode==="tension"&&activeString)hint.textContent="Tendi o allenta il filo, poi apri entrambe le pinze per fissarlo.";
+      else if(editMode==="tension")hint.textContent="Pinza i due estremi, tendi e apri le dita.";
+      else if(strings.length)hint.textContent="Pizzica un filo con un dito. Per modificarlo, scegli Tendi.";
+      else hint.textContent="Per creare un filo, scegli Tendi e usa entrambe le mani.";
 
       for(const hand of hands){
         for(const tipIndex of fingerTips){
@@ -540,12 +548,12 @@
         stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:"user"},width:{ideal:480,max:640},height:{ideal:360,max:480},frameRate:{ideal:30,max:30}}});
         video.srcObject=stream;await video.play();loaderText.textContent="Caricamento del tracciamento…";
         const vision=await FilesetResolver.forVisionTasks(WASM_URL);
-        try{landmarker=await HandLandmarker.createFromOptions(vision,{baseOptions:{modelAssetPath:MODEL_URL,delegate:"GPU"},runningMode:"VIDEO",numHands:2,
+        try{landmarker=await HandLandmarker.createFromOptions(vision,{baseOptions:{modelAssetPath:MODEL_URL,delegate:"GPU"},runningMode:"VIDEO",numHands:1,
           minHandDetectionConfidence:.48,minHandPresenceConfidence:.48,minTrackingConfidence:.46});}
-        catch(gpuError){landmarker=await HandLandmarker.createFromOptions(vision,{baseOptions:{modelAssetPath:MODEL_URL,delegate:"CPU"},runningMode:"VIDEO",numHands:2,
+        catch(gpuError){landmarker=await HandLandmarker.createFromOptions(vision,{baseOptions:{modelAssetPath:MODEL_URL,delegate:"CPU"},runningMode:"VIDEO",numHands:1,
           minHandDetectionConfidence:.48,minHandPresenceConfidence:.48,minTrackingConfidence:.46});}
         running=true;stage.classList.add("live");setDockCollapsed(true);setStatus("In ascolto","live");hideLoader();
-        showToast("Afferra gli estremi con entrambe le mani, tendi e rilascia per fissare il filo.",5000);requestAnimationFrame(trackLoop);
+        showToast("Suona con una mano. Per creare o ritensionare un filo, scegli Tendi.",5000);requestAnimationFrame(trackLoop);
       }catch(error){
         console.error(error);stream?.getTracks().forEach(function(track){track.stop();});stream=null;video.srcObject=null;
         hideLoader();startBtn.disabled=false;setStatus("Fotocamera non avviata","error");
@@ -566,7 +574,7 @@
     async function stop(){
       running=false;stream?.getTracks().forEach(function(track){track.stop();});stream=null;video.srcObject=null;currentHands=[];
       if(activeString)finishString();moveGesture=null;if(landmarker){landmarker.close();landmarker=null;}
-      stage.classList.remove("live","has-hand");lastVideoTime=-1;lastInferenceAt=0;startBtn.disabled=false;setStatus("In attesa");previousTips.clear();
+      stage.classList.remove("live","has-hand");lastVideoTime=-1;lastInferenceAt=0;trackingHands=1;startBtn.disabled=false;setStatus("In attesa");previousTips.clear();
       if(audio){await audio.close();audio=null;audioGraph=null;stringBufferCache.clear();}
     }
     startBtn.addEventListener("click",start);
