@@ -537,7 +537,7 @@
       startBtn.disabled=true;showLoader("Avvio della fotocamera…");setStatus("Avvio camera","loading");
       try{
         ensureAudio();
-        stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:"user"},width:{ideal:640},height:{ideal:480},frameRate:{ideal:30,max:30}}});
+        stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:"user"},width:{ideal:480,max:640},height:{ideal:360,max:480},frameRate:{ideal:30,max:30}}});
         video.srcObject=stream;await video.play();loaderText.textContent="Caricamento del tracciamento…";
         const vision=await FilesetResolver.forVisionTasks(WASM_URL);
         try{landmarker=await HandLandmarker.createFromOptions(vision,{baseOptions:{modelAssetPath:MODEL_URL,delegate:"GPU"},runningMode:"VIDEO",numHands:2,
