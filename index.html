@@ -29,7 +29,9 @@
     .stage { position: fixed; inset: 0; overflow: hidden; background: radial-gradient(ellipse at 50% 42%, #172333 0%, #0b1019 48%, #07090e 100%); }
     #camera, #fx { position: absolute; inset: 0; width: 100%; height: 100%; }
     #camera { object-fit: cover; transform: scaleX(-1); opacity: 0; transition: opacity .7s ease; }
-    .stage.live #camera { opacity: .65; }
+    .stage.live { background:#03050a; }
+    .stage.live #camera { opacity:0; }
+    .stage.live .shade,.stage.live .grain { display:none; }
     #fx { pointer-events: none; }
     .shade { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, rgba(3,5,10,.72) 0%, transparent 24%, transparent 65%, rgba(3,5,10,.76) 100%); }
     .grain { position:absolute; inset:0; opacity:.11; pointer-events:none; background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.25'/%3E%3C/svg%3E"); mix-blend-mode:screen; }
@@ -75,7 +77,10 @@
     .note { color:var(--cyan); font-variant-numeric:tabular-nums; font-size:11px; }
     .meter { height:3px; margin:11px 0 12px; overflow:hidden; border-radius:99px; background:rgba(255,255,255,.09); }
     .meter-fill { width:4%; height:100%; border-radius:inherit; background:linear-gradient(90deg,var(--cyan),var(--violet),var(--pink)); box-shadow:0 0 12px rgba(120,245,255,.8); transition:width .1s linear; }
-    .controls { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+    .controls { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+    .tools-row { grid-column:1/-1; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+    .control.tool { padding:0 7px; font-size:11px; }
+    .control.tool.active { border-color:rgba(120,245,255,.52); background:rgba(120,245,255,.13); color:#bafaff; }
     .sound-row { grid-column:1/-1; display:grid; grid-template-columns:1fr 1.15fr; gap:8px; }
     .sound-select { width:100%; min-height:42px; padding:0 10px; border:1px solid rgba(215,231,250,.13); border-radius:13px; background:#151d2a; color:#e3ecf7; font:inherit; font-size:12px; }
     .control { min-height:42px; padding:0 13px; border:1px solid rgba(215,231,250,.13); border-radius:13px; background:rgba(255,255,255,.055); color:#e3ecf7; font-size:12px; cursor:pointer; }
@@ -85,12 +90,15 @@
     .control.sound.on { border-color:rgba(120,245,255,.36); background:rgba(120,245,255,.09); color:#bafaff; }
     .control.reset { color:#aab5c6; }
     .sound-icon { display:inline-block; width:16px; margin-right:7px; color:var(--cyan); }
-    .effect-controls { display:flex; justify-content:center; gap:24px; margin-top:11px; padding-top:10px; border-top:1px solid rgba(215,231,250,.09); }
-    .effect-knob { display:grid; grid-template-columns:auto 40px 20px; align-items:center; gap:8px; color:#aebbd0; font-size:9px; font-weight:700; letter-spacing:.12em; }
-    .knob { --knob-angle:-135deg; position:relative; width:38px; height:38px; border:1px solid rgba(215,231,250,.2); border-radius:50%; background:radial-gradient(circle at 35% 30%,#273345,#121925 70%); box-shadow:inset 0 1px 4px #0008,0 2px 8px #0005; touch-action:none; cursor:ns-resize; outline:none; }
-    .knob:focus-visible { box-shadow:0 0 0 2px var(--cyan),inset 0 1px 4px #0008; }
-    .knob-indicator { position:absolute; left:calc(50% - 1px); top:4px; width:2px; height:15px; border-radius:2px; background:var(--cyan); box-shadow:0 0 7px var(--cyan); transform-origin:1px 15px; transform:rotate(var(--knob-angle)); }
-    .knob-value { color:#f5f8ff; font-size:11px; font-variant-numeric:tabular-nums; text-align:right; letter-spacing:0; }
+    .effect-controls { display:grid; grid-template-columns:1fr; gap:9px; margin-top:11px; padding-top:10px; border-top:1px solid rgba(215,231,250,.09); }
+    .effect-fader { display:grid; grid-template-columns:78px minmax(90px,1fr) 24px; align-items:center; gap:10px; color:#aebbd0; font-size:9px; font-weight:700; letter-spacing:.12em; }
+    .fader { width:100%; height:24px; margin:0; appearance:none; background:transparent; cursor:pointer; touch-action:pan-y; }
+    .fader:focus-visible { outline:2px solid var(--cyan); outline-offset:3px; border-radius:8px; }
+    .fader::-webkit-slider-runnable-track { height:5px; border-radius:99px; background:linear-gradient(90deg,var(--cyan),var(--violet)); }
+    .fader::-moz-range-track { height:5px; border-radius:99px; background:linear-gradient(90deg,var(--cyan),var(--violet)); }
+    .fader::-webkit-slider-thumb { width:18px; height:18px; margin-top:-6.5px; appearance:none; border:2px solid #d8fcff; border-radius:50%; background:#64dce8; box-shadow:0 0 12px #78f5ff88; }
+    .fader::-moz-range-thumb { width:14px; height:14px; border:2px solid #d8fcff; border-radius:50%; background:#64dce8; box-shadow:0 0 12px #78f5ff88; }
+    .fader-value { color:#f5f8ff; font-size:11px; font-variant-numeric:tabular-nums; text-align:right; letter-spacing:0; }
     .footnote { margin-top:8px; color:#8290a4; font-size:10px; text-align:center; line-height:1.35; }
     .corner { position:absolute; z-index:2; bottom:calc(124px + var(--safe-bottom)); left:50%; transform:translateX(-50%); color:rgba(210,225,245,.55); font-size:9px; letter-spacing:.2em; text-transform:uppercase; white-space:nowrap; }
     .toast { position:absolute; z-index:8; left:50%; top:calc(62px + env(safe-area-inset-top,0px)); transform:translate(-50%,-8px); max-width:calc(100% - 32px); padding:10px 14px; border:1px solid rgba(220,235,255,.16); border-radius:13px; background:rgba(12,17,27,.9); color:#e8eff9; font-size:12px; line-height:1.4; text-align:center; opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; }
@@ -100,7 +108,7 @@
     .loader-box { display:flex; align-items:center; gap:12px; padding:14px 17px; border:1px solid var(--line); border-radius:16px; background:rgba(15,20,30,.88); color:#d9e6f6; font-size:12px; }
     .spinner { width:17px;height:17px;border:2px solid rgba(255,255,255,.2);border-top-color:var(--cyan);border-radius:50%;animation:spin .8s linear infinite; }
     @keyframes spin { to { transform:rotate(360deg); } }
-    @media (min-width:760px) { .topbar { left:26px;right:26px;top:22px; } .dock { bottom:22px; } .stage.live .camera { opacity:.75; } .controls { display:grid; grid-template-columns:1fr 1fr 1fr; } .sound-row { grid-column:1/-1; grid-template-columns:1fr 1.15fr; } .effect-controls { justify-content:flex-end; } }
+    @media (min-width:760px) { .topbar { left:26px;right:26px;top:22px; } .dock { bottom:22px; } .controls { grid-template-columns:repeat(3,minmax(0,1fr)); } .sound-row { grid-column:1/-1; grid-template-columns:1fr 1.15fr; } .effect-controls { grid-template-columns:1fr 1fr; } }
     @media (max-height:650px) { .intro { top:48%; } .intro h1 { font-size:42px; margin:9px 0 7px; } .intro p { font-size:12px; } .primary { min-height:44px; margin-top:15px; } .privacy { margin-top:8px; } .dock-card { padding:48px 12px 9px; } .meter { margin:8px 0 9px; } .control { min-height:37px; } .footnote { margin-top:6px; } }
     @media (prefers-reduced-motion: reduce) { *,*::before,*::after { animation-duration:.01ms!important; transition-duration:.01ms!important; } }
   </style>
@@ -134,13 +142,14 @@
         <div class="meter"><div class="meter-fill" id="meterFill"></div></div>
         <div class="controls">
           <div class="sound-row"><button class="control sound on" id="soundBtn"><span class="sound-icon">♫</span><span id="soundLabel">Suono attivo</span></button><select class="sound-select" id="soundSelect" aria-label="Scegli il timbro"><option value="harp">Arpa</option><option value="guitar">Chitarra</option><option value="bass">Bass synth</option><option value="pad">Strings pad</option></select></div>
+          <div class="tools-row" role="group" aria-label="Modalità di utilizzo dei fili"><button class="control tool active" id="playTool" type="button" aria-pressed="true">Suona</button><button class="control tool" id="eraseTool" type="button" aria-pressed="false">Gomma</button><button class="control tool" id="moveTool" type="button" aria-pressed="false">Sposta</button></div>
           <button class="control reset" id="undoBtn">Annulla ultimo</button>
           <button class="control reset" id="resetBtn">Azzera fili</button>
           <button class="control reset" id="stopBtn" aria-label="Spegni fotocamera">Spegni</button>
         </div>
         <div class="effect-controls" aria-label="Effetti audio">
-          <div class="effect-knob"><span>RIVERBERO</span><div class="knob" id="reverbKnob" role="slider" tabindex="0" aria-label="Riverbero" aria-valuemin="0" aria-valuemax="10" aria-valuenow="0"><span class="knob-indicator"></span></div><output class="knob-value" id="reverbValue">0</output></div>
-          <div class="effect-knob"><span>DELAY</span><div class="knob" id="delayKnob" role="slider" tabindex="0" aria-label="Delay" aria-valuemin="0" aria-valuemax="10" aria-valuenow="0"><span class="knob-indicator"></span></div><output class="knob-value" id="delayValue">0</output></div>
+          <label class="effect-fader" for="reverbFader"><span>RIVERBERO</span><input class="fader" id="reverbFader" type="range" min="0" max="10" step="1" value="0" aria-label="Riverbero da 0 a 10"><output class="fader-value" id="reverbValue">0</output></label>
+          <label class="effect-fader" for="delayFader"><span>DELAY</span><input class="fader" id="delayFader" type="range" min="0" max="10" step="1" value="0" aria-label="Delay da 0 a 10"><output class="fader-value" id="delayValue">0</output></label>
         </div>
         <div class="footnote" id="footnote">Pinza gli estremi con due mani e rilasciali per fissare il filo. Pizzicalo col dito per suonarlo.</div>
       </div>
@@ -158,11 +167,12 @@
     const meterFill=document.getElementById("meterFill"),tensionText=document.getElementById("tensionText"),noteText=document.getElementById("noteText");
     const hint=document.getElementById("hint"),startBtn=document.getElementById("startBtn"),soundBtn=document.getElementById("soundBtn");
     const soundLabel=document.getElementById("soundLabel"),resetBtn=document.getElementById("resetBtn"),undoBtn=document.getElementById("undoBtn");
-    const stopBtn=document.getElementById("stopBtn"),dock=document.getElementById("dock"),dockToggle=document.getElementById("dockToggle"),dockToggleArrow=document.getElementById("dockToggleArrow"),soundSelect=document.getElementById("soundSelect"),reverbKnob=document.getElementById("reverbKnob"),delayKnob=document.getElementById("delayKnob");
+    const stopBtn=document.getElementById("stopBtn"),dock=document.getElementById("dock"),dockToggle=document.getElementById("dockToggle"),dockToggleArrow=document.getElementById("dockToggleArrow"),soundSelect=document.getElementById("soundSelect"),reverbFader=document.getElementById("reverbFader"),delayFader=document.getElementById("delayFader");
+    const playTool=document.getElementById("playTool"),eraseTool=document.getElementById("eraseTool"),moveTool=document.getElementById("moveTool");
     const reverbValue=document.getElementById("reverbValue"),delayValue=document.getElementById("delayValue");
-    let landmarker=null,stream=null,running=false,soundEnabled=true,audio=null,audioGraph=null;
+    let landmarker=null,handWorker=null,workerReady=false,workerPending=false,stream=null,running=false,soundEnabled=true,audio=null,audioGraph=null;
     let lastVideoTime=-1,lastInferenceAt=0,currentHands=[],previousTips=new Map(),pinchStates=new Map();
-    let strings=[],activeString=null,trails=[],sparks=[],toastTimer=0,lastHandAt=0,reverbAmount=0,delayAmount=0,lastPlayed=null,soundPreset="harp";
+    let strings=[],activeString=null,moveGesture=null,editMode="play",trails=[],sparks=[],toastTimer=0,lastHandAt=0,reverbAmount=0,delayAmount=0,lastPlayed=null,soundPreset="harp",stringBufferCache=new Map(),workerFrameErrors=0;
     const fingerTips=[4,8,12,16,20],palette=["#78f5ff","#91c8ff","#b99bff","#ff9bdc","#a9ffd4","#ffd58c","#ffa4c7","#b5baff"];
 
     function setStatus(label,mode=""){statusText.textContent=label;status.className="status "+mode;}
@@ -218,7 +228,7 @@
       const pts=landmarks.map(point),scale=Math.max(distance(pts[0],pts[9]),1),pinchDistance=distance(pts[4],pts[8]);
       const id=handedness||"hand",was=pinchStates.get(id)||false,threshold=scale*(was ? .52 : .38),pinching=pinchDistance<threshold;
       pinchStates.set(id,pinching);
-      return{id:id,landmarks:landmarks,pts:pts,pinching:pinching,pinch:midpoint(pts[4],pts[8]),scale:scale};
+      return{id:id,landmarks:landmarks,pts:pts,pinching:pinching,pinchStarted:pinching&&!was,pinch:midpoint(pts[4],pts[8]),scale:scale};
     }
     function findStringAt(a,b){
       const limit=Math.min(canvas.width,canvas.height)*.12;
@@ -227,6 +237,11 @@
         const sa=pixelPoint(item.a),sb=pixelPoint(item.b),score=Math.min(distance(a,sa)+distance(b,sb),distance(a,sb)+distance(b,sa));
         if(score<bestScore&&score<limit*2){best=item;bestScore=score;}
       }
+      return best;
+    }
+    function findStringNearPoint(point,maxDistance){
+      let best=null,bestDistance=maxDistance;
+      for(const item of strings){const d=pointSegmentDistance(point,pixelPoint(item.a),pixelPoint(item.b));if(d<bestDistance){best=item;bestDistance=d;}}
       return best;
     }
     function beginString(a,b){
@@ -254,6 +269,7 @@
       if(!activeString)return;
       const item=activeString.target,a=pixelPoint(item.a),b=pixelPoint(item.b),minLength=Math.min(canvas.width,canvas.height)*.12;
       if(distance(a,b)>=minLength){
+        prepareString(item);
         if(activeString.isNew){strings.push(item);showToast("Filo fissato · "+Math.round(item.frequency)+" Hz");}
         else showToast("Filo ritensionato · "+Math.round(item.frequency)+" Hz");
         lastPlayed=item;
@@ -303,7 +319,7 @@
       if(!audio){
         const AC=window.AudioContext||window.webkitAudioContext;
         if(!AC)throw new Error("Questo browser non supporta l’audio.");
-        audio=new AC();createAudioGraph();
+        audio=new AC({latencyHint:"interactive"});createAudioGraph();
       }
       if(audio.state==="suspended")audio.resume();
     }
@@ -322,12 +338,19 @@
       for(let i=period;i<length;i++)data[i]=.5*(data[i-period]+data[i-period+1])*damping;
       const buffer=audio.createBuffer(1,length,sampleRate);buffer.copyToChannel(data,0);return buffer;
     }
+    function prepareString(item){
+      if(!audio)return;
+      if(soundPreset!=="harp"&&soundPreset!=="guitar"){item.audioBuffer=null;item.audioRate=1;return;}
+      const midi=Math.round(69+12*Math.log2(item.frequency/440)),baseFrequency=440*Math.pow(2,(midi-69)/12),key=soundPreset+":"+midi;
+      if(!stringBufferCache.has(key))stringBufferCache.set(key,makeStringBuffer(baseFrequency));
+      item.audioBuffer=stringBufferCache.get(key);item.audioRate=item.frequency/baseFrequency;
+    }
     function connectVoice(voice){
       voice.connect(audioGraph.master);voice.connect(audioGraph.reverbSend);voice.connect(audioGraph.delaySend);
     }
-    function pluck(freq,strength=.75){
+    function pluck(item,strength=.75){
       if(!soundEnabled||!audio)return;
-      const now=audio.currentTime,voice=audio.createGain();connectVoice(voice);
+      const freq=item.frequency,now=audio.currentTime,voice=audio.createGain();connectVoice(voice);
       if(soundPreset==="bass"||soundPreset==="pad"){
         const pad=soundPreset==="pad",filter=audio.createBiquadFilter();filter.type="lowpass";
         filter.frequency.setValueAtTime(pad?Math.min(4200,freq*8):Math.min(2400,freq*5),now);filter.Q.value=pad?.8:1.1;filter.connect(voice);
@@ -344,9 +367,9 @@
         oscillators.forEach(function(osc){osc.start(now);osc.stop(now+(pad?5:2.8));});
         oscillators[0].addEventListener("ended",function(){filter.disconnect();voice.disconnect();},{once:true});
       }else{
-        const source=audio.createBufferSource(),filter=audio.createBiquadFilter();source.buffer=makeStringBuffer(freq);
+        const source=audio.createBufferSource(),filter=audio.createBiquadFilter();source.buffer=item.audioBuffer||makeStringBuffer(freq);source.playbackRate.value=item.audioRate||1;
         filter.type="lowpass";filter.frequency.value=(soundPreset==="guitar"?2600:1800)+strength*(soundPreset==="guitar"?5000:4200);filter.Q.value=.55;
-        voice.gain.setValueAtTime(.0001,now);voice.gain.exponentialRampToValueAtTime((soundPreset==="guitar"?.16:.19)*strength,now+.006);
+        voice.gain.setValueAtTime(.0001,now);voice.gain.exponentialRampToValueAtTime((soundPreset==="guitar"?.16:.19)*strength,now+.012);
         voice.gain.exponentialRampToValueAtTime(.0001,now+(soundPreset==="guitar"?1.4:1.8));
         source.connect(filter);filter.connect(voice);source.start(now);
         source.addEventListener("ended",function(){source.disconnect();filter.disconnect();voice.disconnect();},{once:true});
@@ -354,33 +377,25 @@
     }
     function setDockCollapsed(collapsed){dock.classList.toggle("collapsed",collapsed);dockToggle.setAttribute("aria-expanded",String(!collapsed));dockToggle.firstChild.textContent=collapsed?"Mostra controlli ":"Nascondi controlli ";dockToggleArrow.textContent=collapsed?"⌃":"⌄";}
     dockToggle.addEventListener("click",function(){setDockCollapsed(!dock.classList.contains("collapsed"));});
-    soundSelect.addEventListener("change",function(){soundPreset=soundSelect.value;showToast("Timbro: "+soundSelect.options[soundSelect.selectedIndex].text);});
+    soundSelect.addEventListener("change",function(){soundPreset=soundSelect.value;strings.forEach(prepareString);showToast("Timbro: "+soundSelect.options[soundSelect.selectedIndex].text);});
     function setSound(enabled){soundEnabled=enabled;soundBtn.classList.toggle("on",enabled);soundLabel.textContent=enabled?"Suono attivo":"Suono disattivato";}
-    function setKnob(knob,output,kind,value){
-      const amount=clamp(Math.round(value),0,10);
+    function setFader(fader,output,kind,value){
+      const amount=clamp(Math.round(value),0,10);fader.value=String(amount);fader.setAttribute("aria-valuetext",amount+" su 10");
       if(kind==="reverb")reverbAmount=amount;else delayAmount=amount;
-      knob.style.setProperty("--knob-angle",(-135+amount*27)+"deg");
-      knob.setAttribute("aria-valuenow",String(amount));knob.setAttribute("aria-valuetext",amount+" su 10");
       output.textContent=String(amount);updateEffects();
     }
-    function installKnob(knob,output,kind){
-      function setFromPointer(event){
-        const rect=knob.getBoundingClientRect(),dx=event.clientX-(rect.left+rect.width/2),dy=event.clientY-(rect.top+rect.height/2);
-        const degrees=(Math.atan2(dy,dx)*180/Math.PI+360)%360,progress=(degrees-135+360)%360;
-        setKnob(knob,output,kind,Math.round(clamp(progress/270,0,1)*10));
-      }
-      knob.addEventListener("pointerdown",function(event){knob.setPointerCapture(event.pointerId);setFromPointer(event);});
-      knob.addEventListener("pointermove",function(event){if(knob.hasPointerCapture(event.pointerId))setFromPointer(event);});
-      knob.addEventListener("keydown",function(event){
-        let next=Number(knob.getAttribute("aria-valuenow")||0);
-        if(event.key==="ArrowUp"||event.key==="ArrowRight")next++;
-        else if(event.key==="ArrowDown"||event.key==="ArrowLeft")next--;
-        else if(event.key==="Home")next=0;else if(event.key==="End")next=10;else return;
-        event.preventDefault();setKnob(knob,output,kind,next);
-      });
+    reverbFader.addEventListener("input",function(){setFader(reverbFader,reverbValue,"reverb",reverbFader.value);});
+    delayFader.addEventListener("input",function(){setFader(delayFader,delayValue,"delay",delayFader.value);});
+    setFader(reverbFader,reverbValue,"reverb",0);setFader(delayFader,delayValue,"delay",0);
+    function selectTool(mode){
+      if(activeString)cancelActiveString();editMode=mode;moveGesture=null;
+      [[playTool,"play"],[eraseTool,"erase"],[moveTool,"move"]].forEach(function(entry){entry[0].classList.toggle("active",entry[1]===mode);entry[0].setAttribute("aria-pressed",String(entry[1]===mode));});
+      const message=mode==="play"?"Modalità suona: attraversa un filo con un dito.":mode==="erase"?"Gomma: passa un dito attraverso il filo da cancellare.":"Sposta: pinza il filo al centro con una mano e trascinalo.";
+      showToast(message,3500);
     }
-    installKnob(reverbKnob,reverbValue,"reverb");installKnob(delayKnob,delayValue,"delay");
-    setKnob(reverbKnob,reverbValue,"reverb",0);setKnob(delayKnob,delayValue,"delay",0);
+    playTool.addEventListener("click",function(){selectTool("play");});
+    eraseTool.addEventListener("click",function(){selectTool(editMode==="erase"?"play":"erase");});
+    moveTool.addEventListener("click",function(){selectTool(editMode==="move"?"play":"move");});
 
     function addSpark(p,color,speed){
       const count=Math.round(clamp(speed/85,7,22));
@@ -398,21 +413,39 @@
       if(!currentHands.length){
         if(now-lastHandAt>300){
           stage.classList.remove("has-hand");previousTips.clear();pinchStates.clear();
-          if(activeString)finishString();hint.textContent="Mostra entrambe le mani per tendere un filo.";updateReadout();
+          if(activeString)finishString();moveGesture=null;hint.textContent="Mostra entrambe le mani per tendere un filo.";updateReadout();
         }
         return;
       }
       lastHandAt=now;stage.classList.add("has-hand");
       const hands=currentHands,bothPinching=hands.length>=2&&hands[0].pinching&&hands[1].pinching;
-      if(bothPinching&&!activeString)beginString(hands[0].pinch,hands[1].pinch);
-      const wasEditing=Boolean(activeString);
+      if(editMode==="play"&&bothPinching&&!activeString)beginString(hands[0].pinch,hands[1].pinch);
+      if(editMode==="move"){
+        const pinchingHand=hands.find(function(hand){return hand.pinching;});
+        if(!moveGesture&&pinchingHand?.pinchStarted){
+          const target=findStringNearPoint(pinchingHand.pinch,Math.min(canvas.width,canvas.height)*.065);
+          if(target)moveGesture={target:target,handId:pinchingHand.id,start:normalized(pinchingHand.pinch),a:{x:target.a.x,y:target.a.y},b:{x:target.b.x,y:target.b.y}};
+          else showToast("Avvicina il pizzico al filo da spostare.",1800);
+        }
+        if(moveGesture){
+          const hand=hands.find(function(item){return item.id===moveGesture.handId&&item.pinching;});
+          if(hand){
+            const nowPoint=normalized(hand.pinch),dx=nowPoint.x-moveGesture.start.x,dy=nowPoint.y-moveGesture.start.y;
+            moveGesture.target.a={x:moveGesture.a.x+dx,y:moveGesture.a.y+dy};moveGesture.target.b={x:moveGesture.b.x+dx,y:moveGesture.b.y+dy};
+            moveGesture.lastSeen=now;moveGesture.target.lastMoved=now;
+          }else if(hand||now-moveGesture.lastSeen>180)moveGesture=null;
+        }
+      }else moveGesture=null;
+      const wasEditing=Boolean(activeString||moveGesture);
       if(activeString){
         if(hands.length>=2){
           updateActiveString(hands[0].pinch,hands[1].pinch,hands[0].pinching,hands[1].pinching);
           if(!hands[0].pinching&&!hands[1].pinching)finishString();
         }else if(now-activeString.lastSeen>300)finishString();
       }else updateReadout();
-      if(hands.length<2)hint.textContent="Mostra entrambe le mani per tendere un filo.";
+      if(editMode==="erase")hint.textContent="Gomma attiva: passa un dito attraverso il filo da cancellare.";
+      else if(editMode==="move")hint.textContent="Sposta attivo: pizzica un filo al centro con una mano e trascinalo.";
+      else if(hands.length<2)hint.textContent="Mostra entrambe le mani per tendere un filo.";
       else if(activeString)hint.textContent="Tendi o allenta il filo, poi apri entrambe le pinze per fissarlo.";
       else if(strings.length)hint.textContent="Pizzica un filo con un dito oppure ritensionane uno o tendine uno nuovo con entrambe le mani.";
       else hint.textContent="Pinza gli estremi con entrambe le mani, tendi e apri le dita.";
@@ -422,17 +455,21 @@
           const p=hand.pts[tipIndex],key=hand.id+":"+tipIndex,prev=previousTips.get(key);
           if(wasEditing||activeString||hand.pinching||!prev){previousTips.set(key,{x:p.x,y:p.y,t:now});continue;}
           const dt=Math.max(.008,(now-prev.t)/1000),speed=distance(p,prev)/dt;
-          let touched=null,hitPoint=null;
+          let touched=null,hitPoint=null,touchedIndex=-1;
           const tolerance=Math.min(canvas.width,canvas.height)*.018;
           if(speed>145){
-            for(const item of strings){
-              if(now-(item.lastPlucked||0)<170)continue;
+            for(let i=0;i<strings.length;i++){
+              const item=strings[i];if(editMode==="play"&&now-(item.lastPlucked||0)<170)continue;
               const a=pixelPoint(item.a),b=pixelPoint(item.b);
-              if(motionTouchesString(prev,p,a,b,tolerance)){touched=item;hitPoint=closestOnSegment(p,a,b);break;}
+              if(motionTouchesString(prev,p,a,b,tolerance)){touched=item;touchedIndex=i;hitPoint=closestOnSegment(p,a,b);break;}
             }
           }
-          if(touched){
-            touched.lastPlucked=now;lastPlayed=touched;pluck(touched.frequency,clamp(speed/950,.3,1));addSpark(hitPoint,touched.color,speed);
+          if(touched&&editMode==="erase"){
+            strings.splice(touchedIndex,1);if(lastPlayed===touched)lastPlayed=strings[strings.length-1]||null;
+            showToast("Filo cancellato.",1500);updateReadout();previousTips.set(key,{x:p.x,y:p.y,t:now});continue;
+          }
+          if(touched&&editMode==="play"){
+            touched.lastPlucked=now;lastPlayed=touched;pluck(touched,clamp(speed/950,.3,1));addSpark(hitPoint,touched.color,speed);
             tensionText.textContent="pizzicata · "+Math.round(touched.frequency)+" Hz";
             meterFill.style.width=Math.max(4,touched.tension*100)+"%";noteText.textContent=noteForFrequency(touched.frequency)+" · "+Math.round(touched.frequency)+" Hz";
           }
@@ -470,8 +507,8 @@
         }
         const bones=[[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
         for(const hand of currentHands){
-          ctx.strokeStyle="rgba(116,206,255,.24)";ctx.lineWidth=Math.max(1,W/1000);
-          for(const pair of bones){ctx.beginPath();ctx.moveTo(hand.pts[pair[0]].x,hand.pts[pair[0]].y);ctx.lineTo(hand.pts[pair[1]].x,hand.pts[pair[1]].y);ctx.stroke();}
+          ctx.strokeStyle="rgba(120,245,255,.62)";ctx.shadowColor="#78f5ff";ctx.shadowBlur=6*shortSide/520;ctx.lineWidth=Math.max(1.2,W/850);
+          for(const pair of bones){ctx.beginPath();ctx.moveTo(hand.pts[pair[0]].x,hand.pts[pair[0]].y);ctx.lineTo(hand.pts[pair[1]].x,hand.pts[pair[1]].y);ctx.stroke();}ctx.shadowBlur=0;
           for(let i=0;i<fingerTips.length;i++){
             const p=hand.pts[fingerTips[i]],r=2.8*shortSide/480;
             ctx.beginPath();ctx.arc(p.x,p.y,r,0,Math.PI*2);ctx.fillStyle="#e8ffff";ctx.shadowColor=palette[i%palette.length];ctx.shadowBlur=10;ctx.fill();ctx.shadowBlur=0;
@@ -504,13 +541,14 @@
         ensureAudio();
         stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:"user"},width:{ideal:640},height:{ideal:480},frameRate:{ideal:30,max:30}}});
         video.srcObject=stream;await video.play();loaderText.textContent="Caricamento del tracciamento…";
-        const vision=await FilesetResolver.forVisionTasks(WASM_URL);
-        try{
-          landmarker=await HandLandmarker.createFromOptions(vision,{baseOptions:{modelAssetPath:MODEL_URL,delegate:"GPU"},runningMode:"VIDEO",numHands:2,
-            minHandDetectionConfidence:.48,minHandPresenceConfidence:.48,minTrackingConfidence:.46});
-        }catch(gpuError){
-          landmarker=await HandLandmarker.createFromOptions(vision,{baseOptions:{modelAssetPath:MODEL_URL,delegate:"CPU"},runningMode:"VIDEO",numHands:2,
-            minHandDetectionConfidence:.48,minHandPresenceConfidence:.48,minTrackingConfidence:.46});
+        try{await startHandWorker();}
+        catch(workerError){
+          console.warn("Worker non disponibile, uso il thread principale",workerError);
+          const vision=await FilesetResolver.forVisionTasks(WASM_URL);
+          try{landmarker=await HandLandmarker.createFromOptions(vision,{baseOptions:{modelAssetPath:MODEL_URL,delegate:"GPU"},runningMode:"VIDEO",numHands:2,
+            minHandDetectionConfidence:.48,minHandPresenceConfidence:.48,minTrackingConfidence:.46});}
+          catch(gpuError){landmarker=await HandLandmarker.createFromOptions(vision,{baseOptions:{modelAssetPath:MODEL_URL,delegate:"CPU"},runningMode:"VIDEO",numHands:2,
+            minHandDetectionConfidence:.48,minHandPresenceConfidence:.48,minTrackingConfidence:.46});}
         }
         running=true;stage.classList.add("live");setDockCollapsed(true);setStatus("In ascolto","live");hideLoader();
         showToast("Afferra gli estremi con entrambe le mani, tendi e rilascia per fissare il filo.",5000);requestAnimationFrame(trackLoop);
@@ -522,29 +560,69 @@
         showToast(message,6500);
       }
     }
+    async function startHandWorker(){
+      await new Promise(function(resolve,reject){
+        const candidate=new Worker(new URL("./hand-worker.js",import.meta.url),{type:"module"});let settled=false;
+        const timeout=setTimeout(function(){if(!settled){settled=true;candidate.terminate();reject(new Error("Timeout inizializzazione worker"));}},20000);
+        candidate.onmessage=function(event){
+          const data=event.data||{};
+          if(data.type==="ready"&&!settled){settled=true;clearTimeout(timeout);handWorker=candidate;workerReady=true;resolve();}
+          else if(data.type==="init-error"&&!settled){settled=true;clearTimeout(timeout);candidate.terminate();reject(new Error(data.message||"Worker non avviato"));}
+          else if(data.type==="result"){
+            workerPending=false;workerFrameErrors=0;if(running)processHands(data.landmarks||[],data.handedness||[],data.timestamp);
+          }else if(data.type==="frame-error"){
+            workerPending=false;workerFrameErrors++;
+            if(workerFrameErrors>=3&&running){candidate.terminate();handWorker=null;workerReady=false;startMainTracker().catch(function(fallbackError){showToast("Tracking non disponibile: "+fallbackError.message,5000);});}
+          }
+        };
+        candidate.onerror=function(error){
+          if(!settled){settled=true;clearTimeout(timeout);candidate.terminate();reject(error);}
+          else if(running&&handWorker===candidate){workerPending=false;workerReady=false;handWorker=null;candidate.terminate();startMainTracker().catch(function(fallbackError){showToast("Tracking non disponibile: "+fallbackError.message,5000);});}
+        };
+        candidate.postMessage({type:"init",modelUrl:MODEL_URL,wasmUrl:WASM_URL});
+      });
+    }
+    async function startMainTracker(){
+      if(landmarker||!running)return;
+      const vision=await FilesetResolver.forVisionTasks(WASM_URL);
+      try{landmarker=await HandLandmarker.createFromOptions(vision,{baseOptions:{modelAssetPath:MODEL_URL,delegate:"GPU"},runningMode:"VIDEO",numHands:2,
+        minHandDetectionConfidence:.48,minHandPresenceConfidence:.48,minTrackingConfidence:.46});}
+      catch(gpuError){landmarker=await HandLandmarker.createFromOptions(vision,{baseOptions:{modelAssetPath:MODEL_URL,delegate:"CPU"},runningMode:"VIDEO",numHands:2,
+        minHandDetectionConfidence:.48,minHandPresenceConfidence:.48,minTrackingConfidence:.46});}
+    }
     function trackLoop(now){
       if(!running)return;
-      if(video.readyState>=2&&video.currentTime!==lastVideoTime&&now-lastInferenceAt>32){
+      if(video.readyState>=2&&video.currentTime!==lastVideoTime&&now-lastInferenceAt>24){
         lastVideoTime=video.currentTime;lastInferenceAt=now;
-        try{const result=landmarker.detectForVideo(video,now);processHands(result.landmarks||[],result.handedness||[],now);}
-        catch(error){console.warn("Hand tracking frame skipped",error);}
+        if(workerReady&&handWorker&&!workerPending){
+          workerPending=true;
+          createImageBitmap(video).then(function(bitmap){
+            if(running&&handWorker)handWorker.postMessage({type:"frame",bitmap:bitmap,timestamp:now},[bitmap]);
+            else{bitmap.close();workerPending=false;}
+          }).catch(function(error){workerPending=false;console.warn("Frame camera non trasferito",error);});
+        }else if(landmarker){
+          try{const result=landmarker.detectForVideo(video,now);processHands(result.landmarks||[],result.handedness||[],now);}
+          catch(error){console.warn("Hand tracking frame skipped",error);}
+        }
       }
       requestAnimationFrame(trackLoop);
     }
     async function stop(){
       running=false;stream?.getTracks().forEach(function(track){track.stop();});stream=null;video.srcObject=null;currentHands=[];
-      if(activeString)finishString();if(landmarker){landmarker.close();landmarker=null;}
-      stage.classList.remove("live","has-hand");startBtn.disabled=false;setStatus("In attesa");previousTips.clear();
-      if(audio){await audio.close();audio=null;audioGraph=null;}
+      if(activeString)finishString();moveGesture=null;if(landmarker){landmarker.close();landmarker=null;}
+      if(handWorker){handWorker.terminate();handWorker=null;}workerReady=false;workerPending=false;
+      stage.classList.remove("live","has-hand");lastVideoTime=-1;lastInferenceAt=0;startBtn.disabled=false;setStatus("In attesa");previousTips.clear();
+      if(audio){await audio.close();audio=null;audioGraph=null;stringBufferCache.clear();}
     }
     startBtn.addEventListener("click",start);
     soundBtn.addEventListener("click",function(){setSound(!soundEnabled);if(soundEnabled){try{ensureAudio();}catch(error){showToast(error.message);}}});
     undoBtn.addEventListener("click",function(){
       if(activeString){cancelActiveString();}
+      else if(moveGesture){moveGesture=null;showToast("Spostamento annullato.");}
       else if(strings.length){const removed=strings.pop();if(lastPlayed===removed)lastPlayed=strings[strings.length-1]||null;updateReadout();showToast("Ultimo filo rimosso.");}
       else showToast("Non ci sono fili da rimuovere.");
     });
-    resetBtn.addEventListener("click",function(){strings=[];activeString=null;trails=[];sparks=[];lastPlayed=null;updateReadout();showToast("Tutti i fili rimossi.");});
+    resetBtn.addEventListener("click",function(){strings=[];activeString=null;moveGesture=null;trails=[];sparks=[];lastPlayed=null;updateReadout();showToast("Tutti i fili rimossi.");});
     stopBtn.addEventListener("click",stop);
     document.addEventListener("visibilitychange",function(){if(document.hidden&&running)stop();});
     window.addEventListener("pagehide",function(){if(running)stop();});
