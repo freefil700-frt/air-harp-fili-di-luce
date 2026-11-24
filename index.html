@@ -169,7 +169,7 @@
     const playTool=document.getElementById("playTool"),tensionTool=document.getElementById("tensionTool"),eraseTool=document.getElementById("eraseTool"),moveTool=document.getElementById("moveTool");
     const reverbValue=document.getElementById("reverbValue"),delayValue=document.getElementById("delayValue");
     let landmarker=null,stream=null,running=false,soundEnabled=true,audio=null,audioGraph=null;
-    let lastVideoTime=-1,lastInferenceAt=0,currentHands=[],previousTips=new Map(),pinchStates=new Map();
+    let lastVideoTime=-1,lastInferenceAt=0,currentHands=[],pinchStates=new Map();
     let strings=[],activeString=null,moveGesture=null,editMode="play",trackingHands=1,trails=[],sparks=[],toastTimer=0,lastHandAt=0,reverbAmount=0,delayAmount=0,lastPlayed=null,soundPreset="harp",stringBufferCache=new Map();
     const fingerTips=[4,8,12,16,20],palette=["#78f5ff","#91c8ff","#b99bff","#ff9bdc","#a9ffd4","#ffd58c","#ffa4c7","#b5baff"];
 
@@ -196,10 +196,44 @@
       const names=["C","C♯","D","D♯","E","F","F♯","G","G♯","A","A♯","B"],midi=Math.round(69+12*Math.log2(freq/440));
       return names[((midi%12)+12)%12]+(Math.floor(midi/12)-1);
     }
+    const NOTE_STEPS=[0,3,5,7,10],BASE_MIDI=57;
     function getTuning(span){
       const shortSide=Math.min(canvas.width,canvas.height),minLength=shortSide*.12,maxLength=shortSide*.85;
-      const tension=clamp((span-minLength)/(maxLength-minLength),0,1);
-      return{tension:tension,frequency:32.7031956626*Math.pow(2,tension*5)};
+      return{tension:clamp((span-minLength)/(maxLength-minLength),0,1)};
+    }
+    function noteZoneCount(item){
+      const len=distance(pixelPoint(item.a),pixelPoint(item.b)),shortSide=Math.min(canvas.width,canvas.height);
+      return clamp(Math.round(len/Math.max(1,shortSide*.1)),3,15);
+    }
+    function noteAtPosition(item,u){
+      const zones=noteZoneCount(item),zone=clamp(Math.floor(clamp(u,0,.9999)*zones),0,zones-1);
+      const midi=BASE_MIDI+12*Math.floor(zone/NOTE_STEPS.length)+NOTE_STEPS[zone%NOTE_STEPS.length];
+      const frequency=440*Math.pow(2,(midi-69)/12);
+      return{zone:zone,zones:zones,midi:midi,frequency:frequency,label:noteForFrequency(frequency)};
+    }
+    function noteRange(item){
+      const zones=noteZoneCount(item),low=noteAtPosition(item,0),high=noteAtPosition(item,.9999);
+      return low.label+"–"+high.label+" · "+zones+" note";
+    }
+    function orientString(item){
+      const a=pixelPoint(item.a),b=pixelPoint(item.b),dx=b.x-a.x,dy=b.y-a.y;
+      const swap=Math.abs(dx)>=Math.abs(dy)?dx<0:dy>0;
+      if(swap){const t=item.a;item.a=item.b;item.b=t;}
+    }
+    function crossingOnString(item,p,key,now,deadband){
+      const a=pixelPoint(item.a),b=pixelPoint(item.b),dx=b.x-a.x,dy=b.y-a.y,len2=dx*dx+dy*dy,len=Math.sqrt(len2);
+      if(len<1)return null;
+      const u=((p.x-a.x)*dx+(p.y-a.y)*dy)/len2,track=item.track||(item.track={});
+      if(u<-.04||u>1.04){delete track[key];return null;}
+      const d=((p.x-a.x)*dy-(p.y-a.y)*dx)/len;
+      if(Math.abs(d)<deadband)return null;
+      const side=d>0?1:-1,prev=track[key],current={x:p.x,y:p.y,d:d,side:side,t:now};
+      track[key]=current;
+      if(!prev||now-prev.t>450||distance(p,prev)>canvas.width*.3||prev.side===side)return null;
+      const f=prev.d/(prev.d-d),point={x:prev.x+(p.x-prev.x)*f,y:prev.y+(p.y-prev.y)*f};
+      const crossU=((point.x-a.x)*dx+(point.y-a.y)*dy)/len2;
+      if(crossU<.04||crossU>.96)return null;
+      return{point:point,u:crossU,speed:distance(p,prev)/Math.max((now-prev.t)/1000,.008)};
     }
     function pointSegmentDistance(p,a,b){
       const dx=b.x-a.x,dy=b.y-a.y,len2=dx*dx+dy*dy;
@@ -244,11 +278,11 @@
     }
     function beginString(a,b){
       const target=findStringAt(a,b),startA=normalized(a),startB=normalized(b);
-      const original=target?{a:{x:target.a.x,y:target.a.y},b:{x:target.b.x,y:target.b.y},frequency:target.frequency,tension:target.tension}:null;
+      const original=target?{a:{x:target.a.x,y:target.a.y},b:{x:target.b.x,y:target.b.y},frequency:target.frequency,tension:target.tension,lastNote:target.lastNote}:null;
       activeString={target:target,isNew:!target,a:startA,b:startB,original:original,lastSeen:performance.now()};
       if(!target){
         const tuning=getTuning(distance(a,b));
-        activeString.target={a:startA,b:startB,frequency:tuning.frequency,tension:tuning.tension,color:palette[strings.length%palette.length],lastPlucked:0};
+        activeString.target={a:startA,b:startB,frequency:220,lastNote:"A3",tension:tuning.tension,color:palette[strings.length%palette.length],lastPlucked:0,track:{}};
       }
       updateActiveString(a,b);
     }
@@ -258,18 +292,18 @@
       if(moveB)activeString.b=normalized(b);
       const pa=pixelPoint(activeString.a),pb=pixelPoint(activeString.b),tuning=getTuning(distance(pa,pb));
       activeString.target.a=activeString.a;activeString.target.b=activeString.b;
-      activeString.target.frequency=tuning.frequency;activeString.target.tension=tuning.tension;activeString.lastSeen=performance.now();
+      activeString.target.tension=tuning.tension;activeString.target.track={};activeString.lastSeen=performance.now();
       tensionText.textContent="tensione "+Math.round(tuning.tension*100)+"%";
       meterFill.style.width=Math.max(4,tuning.tension*100)+"%";
-      noteText.textContent=Math.round(tuning.frequency)+" Hz · "+noteForFrequency(tuning.frequency);
+      noteText.textContent=noteRange(activeString.target);
     }
     function finishString(){
       if(!activeString)return;
       const item=activeString.target,a=pixelPoint(item.a),b=pixelPoint(item.b),minLength=Math.min(canvas.width,canvas.height)*.12;
       if(distance(a,b)>=minLength){
-        prepareString(item);
-        if(activeString.isNew){strings.push(item);showToast("Filo fissato · "+Math.round(item.frequency)+" Hz");}
-        else showToast("Filo ritensionato · "+Math.round(item.frequency)+" Hz");
+        orientString(item);item.track={};prepareString(item);
+        if(activeString.isNew){strings.push(item);showToast("Filo fissato · "+noteRange(item));}
+        else showToast("Filo ritensionato · "+noteRange(item));
         lastPlayed=item;
       }else if(activeString.isNew)showToast("Allontana di più le mani per creare il filo.");
       activeString=null;updateReadout();
@@ -284,7 +318,7 @@
       if(lastPlayed){
         tensionText.textContent="fili "+strings.length+" · fissati";
         meterFill.style.width=Math.max(4,lastPlayed.tension*100)+"%";
-        noteText.textContent=Math.round(lastPlayed.frequency)+" Hz · "+noteForFrequency(lastPlayed.frequency);
+        noteText.textContent=(lastPlayed.lastNote||noteRange(lastPlayed))+" · "+Math.round(lastPlayed.frequency)+" Hz";
       }else{
         tensionText.textContent=strings.length?"fili "+strings.length+" · pronti":"in attesa";
         meterFill.style.width=strings.length?"8%":"3%";noteText.textContent="— Hz";
@@ -338,17 +372,20 @@
     }
     function prepareString(item){
       if(!audio)return;
-      if(soundPreset!=="harp"&&soundPreset!=="guitar"){item.audioBuffer=null;item.audioRate=1;return;}
-      const midi=Math.round(69+12*Math.log2(item.frequency/440)),baseFrequency=440*Math.pow(2,(midi-69)/12),key=soundPreset+":"+midi;
-      if(!stringBufferCache.has(key))stringBufferCache.set(key,makeStringBuffer(baseFrequency));
-      item.audioBuffer=stringBufferCache.get(key);item.audioRate=item.frequency/baseFrequency;
+      if(soundPreset!=="harp"&&soundPreset!=="guitar"){item.audioBuffers=[];return;}
+      item.audioBuffers=[BASE_MIDI,BASE_MIDI+12,BASE_MIDI+24].map(function(midi){
+        const key=soundPreset+":"+midi,frequency=440*Math.pow(2,(midi-69)/12);
+        if(!stringBufferCache.has(key))stringBufferCache.set(key,makeStringBuffer(frequency));
+        return stringBufferCache.get(key);
+      });
     }
     function connectVoice(voice){
       voice.connect(audioGraph.master);voice.connect(audioGraph.reverbSend);voice.connect(audioGraph.delaySend);
     }
-    function pluck(item,strength=.75){
+    function pluck(item,strength=.75,position=.5){
       if(!soundEnabled||!audio)return;
-      const freq=item.frequency,now=audio.currentTime,voice=audio.createGain();connectVoice(voice);
+      const note=noteAtPosition(item,position),freq=note.frequency;item.frequency=freq;item.lastNote=note.label;
+      const now=audio.currentTime,voice=audio.createGain();connectVoice(voice);
       if(soundPreset==="bass"||soundPreset==="pad"){
         const pad=soundPreset==="pad",filter=audio.createBiquadFilter();filter.type="lowpass";
         filter.frequency.setValueAtTime(pad?Math.min(4200,freq*8):Math.min(2400,freq*5),now);filter.Q.value=pad?.8:1.1;filter.connect(voice);
@@ -365,7 +402,9 @@
         oscillators.forEach(function(osc){osc.start(now);osc.stop(now+(pad?5:2.8));});
         oscillators[0].addEventListener("ended",function(){filter.disconnect();voice.disconnect();},{once:true});
       }else{
-        const source=audio.createBufferSource(),filter=audio.createBiquadFilter();source.buffer=item.audioBuffer||makeStringBuffer(freq);source.playbackRate.value=item.audioRate||1;
+        const source=audio.createBufferSource(),filter=audio.createBiquadFilter(),octave=clamp(Math.floor((note.midi-BASE_MIDI)/12),0,2),baseMidi=BASE_MIDI+octave*12;
+        source.buffer=item.audioBuffers?.[octave]||makeStringBuffer(440*Math.pow(2,(baseMidi-69)/12));
+        source.playbackRate.value=freq/(440*Math.pow(2,(baseMidi-69)/12));
         filter.type="lowpass";filter.frequency.value=(soundPreset==="guitar"?2600:1800)+strength*(soundPreset==="guitar"?5000:4200);filter.Q.value=.55;
         voice.gain.setValueAtTime(.0001,now);voice.gain.exponentialRampToValueAtTime((soundPreset==="guitar"?.16:.19)*strength,now+.012);
         voice.gain.exponentialRampToValueAtTime(.0001,now+(soundPreset==="guitar"?1.4:1.8));
@@ -417,7 +456,7 @@
       }).sort(function(a,b){return a.pinch.x-b.pinch.x;});
       if(!currentHands.length){
         if(now-lastHandAt>300){
-          stage.classList.remove("has-hand");previousTips.clear();pinchStates.clear();
+          stage.classList.remove("has-hand");pinchStates.clear();
           if(activeString)finishString();moveGesture=null;hint.textContent=editMode==="tension"?"Mostra entrambe le mani per tendere un filo.":strings.length?"Mostra una mano e pizzica un filo per suonarlo.":"Mostra una mano. Per creare un filo, scegli Tendi.";updateReadout();
         }
         return;
@@ -457,29 +496,28 @@
       else hint.textContent="Per creare un filo, scegli Tendi e usa entrambe le mani.";
 
       for(const hand of hands){
-        for(const tipIndex of fingerTips){
-          const p=hand.pts[tipIndex],key=hand.id+":"+tipIndex,prev=previousTips.get(key);
-          if(wasEditing||activeString||hand.pinching||!prev){previousTips.set(key,{x:p.x,y:p.y,t:now});continue;}
-          const dt=Math.max(.008,(now-prev.t)/1000),speed=distance(p,prev)/dt;
-          let touched=null,hitPoint=null,touchedIndex=-1;
-          const tolerance=Math.min(canvas.width,canvas.height)*.018;
-          if(speed>145){
-            for(let i=0;i<strings.length;i++){
-              const item=strings[i];if(editMode==="play"&&now-(item.lastPlucked||0)<170)continue;
-              const a=pixelPoint(item.a),b=pixelPoint(item.b);
-              if(motionTouchesString(prev,p,a,b,tolerance)){touched=item;touchedIndex=i;hitPoint=closestOnSegment(p,a,b);break;}
-            }
-          }
-          if(touched&&editMode==="erase"){
-            strings.splice(touchedIndex,1);if(lastPlayed===touched)lastPlayed=strings[strings.length-1]||null;
-            showToast("Filo cancellato.",1500);updateReadout();previousTips.set(key,{x:p.x,y:p.y,t:now});continue;
-          }
-          if(touched&&editMode==="play"){
-            touched.lastPlucked=now;lastPlayed=touched;pluck(touched,clamp(speed/950,.3,1));addSpark(hitPoint,touched.color,speed);
-            tensionText.textContent="pizzicata · "+Math.round(touched.frequency)+" Hz";
-            meterFill.style.width=Math.max(4,touched.tension*100)+"%";noteText.textContent=noteForFrequency(touched.frequency)+" · "+Math.round(touched.frequency)+" Hz";
-          }
-          previousTips.set(key,{x:p.x,y:p.y,t:now});
+        const tipIndex=8,p=hand.pts[tipIndex],key=hand.id+":"+tipIndex;
+        if(wasEditing||activeString||hand.pinching||editMode==="tension"||editMode==="move"){
+          for(const item of strings)if(item.track)delete item.track[key];
+          continue;
+        }
+        const deadband=Math.max(4,Math.min(canvas.width,canvas.height)*.006);
+        let touched=null,hit=null,touchedIndex=-1;
+        for(let i=0;i<strings.length;i++){
+          const item=strings[i],crossing=crossingOnString(item,p,key,now,deadband);
+          if(!crossing)continue;
+          if(editMode==="play"&&now-(item.lastPlucked||0)<110)continue;
+          touched=item;hit=crossing;touchedIndex=i;break;
+        }
+        if(touched&&editMode==="erase"){
+          strings.splice(touchedIndex,1);if(lastPlayed===touched)lastPlayed=strings[strings.length-1]||null;
+          showToast("Filo cancellato.",1500);updateReadout();continue;
+        }
+        if(touched&&editMode==="play"){
+          const note=noteAtPosition(touched,hit.u);
+          touched.lastPlucked=now;lastPlayed=touched;pluck(touched,clamp(hit.speed/950,.3,1),hit.u);addSpark(hit.point,touched.color,hit.speed);
+          tensionText.textContent="pizzicata · "+note.label;
+          meterFill.style.width=Math.max(4,touched.tension*100)+"%";noteText.textContent=note.label+" · "+Math.round(note.frequency)+" Hz";
         }
       }
       const indexHand=hands[0];
@@ -574,7 +612,7 @@
     async function stop(){
       running=false;stream?.getTracks().forEach(function(track){track.stop();});stream=null;video.srcObject=null;currentHands=[];
       if(activeString)finishString();moveGesture=null;if(landmarker){landmarker.close();landmarker=null;}
-      stage.classList.remove("live","has-hand");lastVideoTime=-1;lastInferenceAt=0;trackingHands=1;startBtn.disabled=false;setStatus("In attesa");previousTips.clear();
+      stage.classList.remove("live","has-hand");lastVideoTime=-1;lastInferenceAt=0;trackingHands=1;startBtn.disabled=false;setStatus("In attesa");
       if(audio){await audio.close();audio=null;audioGraph=null;stringBufferCache.clear();}
     }
     startBtn.addEventListener("click",start);
